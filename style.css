@@ -1,0 +1,122 @@
+#nocodecopy-btn {
+    padding-top: 15px;
+    align-items: center;
+}
+
+#nocodecopy-btn {
+    text-align: center;
+}
+
+#nocodecopy-btn.create {
+    display: none;
+}
+
+#copynocode-icon {
+    display: block;
+    margin: 0 10px 5px 10px;
+}
+
+#copynocode-container-fullscreen {
+    display: flex; z-index: 10000; text-align: center; width: 100%; vertical-align: middle; height: 100%; position: absolute; background-color: rgba(87,211,159, 0.2);align-items: center;justify-content: center;
+}
+
+#copynocode-iframe-fullscreen {
+    background-color: #FFF; border: 2px solid #57d39f; border-radius: 5px; width: 80%; height: 80%;
+}
+
+#copynocode-container-fullscreen.hide iframe, #copynocode-container-create.hide iframe, #copynocode-container-update.hide iframe, #copynocode-container-restore.hide iframe {
+    width: 1px; height: 1px;
+}
+
+#copynocode-icons {
+    width: 25px;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: center;
+    margin: 0 5px;
+    overflow: hidden;
+}
+
+#copynocode-icons span {
+    padding: 10px 0;
+}
+
+#copynocode-icons .show {
+    display: none;
+}
+
+#copynocode-container-create {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 0;
+    height: 750px;
+    width: 400px;
+    overflow-y: auto;
+    background-color: #57d39f;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    display: flex;
+    border-radius: 5px;
+}
+
+#copynocode-container-create.hide {
+    width: 30px;
+    height: 75px;
+}
+
+#copynocode-iframe-create {
+    background-color: #FFF; width: 100%; height: 100%;
+}
+
+#copynocode-container-update {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 0;
+    height: 750px;
+    width: 400px;
+    overflow-y: auto;
+    background-color: #57d39f;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    display: flex;
+    border-radius: 5px;
+}
+
+#copynocode-container-update.hide {
+    width: 30px;
+    height: 75px;
+}
+
+#copynocode-iframe-update {
+    background-color: #FFF; width: 100%; height: 100%;
+}
+
+#copynocode-container-restore {
+    position: fixed;
+    top: 25%;
+    transform: translateY(-25%);
+    right: 0;
+    height: 80%;
+    width: 250px;
+    overflow-y: auto;
+    background-color: #57d39f;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    display: flex;
+    border-radius: 5px;
+}
+
+#copynocode-container-restore iframe {
+    width: 220px;
+}
+
+#copynocode-container-restore.hide {
+    width: 45px;
+    height: 75px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+#copynocode-iframe-restore {
+    background-color: #FFF; width: 100%; height: 100%;
+}
