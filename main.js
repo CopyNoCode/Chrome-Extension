@@ -5,9 +5,11 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/up
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/restore/{id}"
 
 // TODOs
-// count fields for things
-// count properties for option sets
-// count workflows
+// count fields for things, listing
+// count properties for option sets, listing
+// count workflows, listing
+// add fonts and colors
+// fix naming
 
 const DEBUG = true;
 
