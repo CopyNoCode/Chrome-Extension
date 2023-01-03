@@ -10,6 +10,8 @@ const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/r
 // count workflows, listing
 // add fonts and colors
 // fix naming
+// tokens font and tokens colors
+// get default styles
 
 const DEBUG = true;
 
@@ -292,7 +294,7 @@ function extractData(sendData) {
                 content = sendData['content_json'];
                 if(sendData['content_json'][0]) {
                     sendData['kind'] = sendData['content_json'][0].type;
-                    if(sendData['content_json'].name)
+                    if(sendData['content_json'][0].name)
                         sendData['name'] = sendData['content_json'][0].name;
                     else
                         sendData['name'] = sendData['content_json'][0].default_name;
