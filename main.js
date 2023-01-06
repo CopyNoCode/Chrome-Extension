@@ -5,13 +5,14 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/cr
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
 
 // TODOs
+// API ELEMENTS, REUSABLE OBJECTS
+// CREATE RESTORE
+// ADD LOADING TO CREATE DIALOGUE EN MINIMAL SIZE
+// ADD fonts and colors // tokens font and tokens colors
+// Filter default styles from used
 // count fields for things, listing
 // count properties for option sets, listing
 // count workflows, listing
-// add fonts and colors
-// fix naming
-// tokens font and tokens colors
-// get default styles
 
 /* FLOW
 
@@ -601,35 +602,62 @@ var handler = {
                             if(related_assets.import.app_paid && related_assets.import.app_styles[value])
                                 styles.add(createString('style', value, related_assets.import.app_styles[value].display, related_assets.import.app_styles[value]))
                             else
-                                styles.add(value);
+                                styles.add(createString('style', value, 'unknown', 'empty'))
+
                             if(DEBUG) console.log('Style: ' + value + ' found')
-                            console.log(related_assets.import.app_paid && related_assets.import.app_styles[value])
-                            console.log(related_assets.import.app_styles[value])
                         }
                         
                         if (typeof value === 'string' && value.startsWith('custom.')) {
-                            customThings.add(value.replace('custom.', ''));
+                            let thing_id = value.replace('custom.', '')
+                            if(related_assets.import.app_paid && related_assets.import.app_things[thing_id])
+                                customThings.add(createString('type', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
+                            else
+                                customThings.add(createString('type', thing_id, 'unknown', 'empty'))
+ 
                             if(DEBUG) console.log('Thing: ' + key + ' with value ' + value + ' found')
                         }
                         
                         if (typeof value === 'string' && value.startsWith('list.custom.')) {
-                            customThings.add(value.replace('list.custom.', ''));
+                            let thing_id = value.replace('list.custom.', '')
+                            if(related_assets.import.app_paid && related_assets.import.app_things[thing_id])
+                                customThings.add(createString('type', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
+                            else
+                                customThings.add(createString('type', thing_id, 'unknown', 'empty'))
+ 
                             if(DEBUG) console.log('Thing: ' + key + ' with value ' + value + ' found')
                         }
                         
                         if (typeof value === 'string' && value.startsWith('option.')) {
-                            customOptions.add(value.replace('option.', ''));
+                            let option_id = value.replace('option.', '')
+                            if(related_assets.import.app_paid && related_assets.import.app_option_sets[option_id])
+                                customOptions.add(createString('type', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
+                            else
+                                customOptions.add(createString('type', option_id, 'unknown', 'empty'))
+
                             if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
                         }
                         
                         if (typeof value === 'string' && value.startsWith('list.option.')) {
-                            customOptions.add(value.replace('list.option.', ''));
+
+                            let option_id = value.replace('list.option.', '')
+                            if(related_assets.import.app_paid && related_assets.import.app_option_sets[option_id])
+                                customOptions.add(createString('type', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
+                            else
+                                customOptions.add(createString('type', option_id, 'unknown', 'empty'))
+
                             if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
                         }
                         
                         if (typeof value === 'string' && value.startsWith('apiconnector2-')) {
-                            ApiConnectors.add(value.replace('apiconnector2-', '').split(".")[0]);
-                            if(DEBUG) console.log('ApiConnector: ' + value + ' with value ' + value.replace('apiconnector2-', '').split(".")[0] + ' found')
+                            let api_id = value.replace('apiconnector2-', '').split(".")[0]
+                            if(related_assets.import.app_paid && related_assets.import.app_apis[api_id])
+                                ApiConnectors.add(createString('apiconnector', api_id, related_assets.import.app_apis[api_id].human, {pub: related_assets.import.app_apis[api_id]}))
+                            else
+                                ApiConnectors.add(createString('apiconnector', api_id, 'unknown', 'empty'))
+
+                            if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
+
+                            if(DEBUG) console.log('ApiConnector: ' + value + ' with value ' + api_id + ' found')
                         }
                         
                         if (typeof value === 'string' && key == "api_event") {
