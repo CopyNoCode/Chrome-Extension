@@ -5,7 +5,6 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/cr
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
 
 // TODOs
-// API ELEMENTS, REUSABLE OBJECTS
 // CREATE RESTORE
 // ADD LOADING TO CREATE DIALOGUE EN MINIMAL SIZE
 // ADD fonts and colors // tokens font and tokens colors
@@ -13,6 +12,7 @@ const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/c
 // count fields for things, listing
 // count properties for option sets, listing
 // count workflows, listing
+// check https://github.com/macmcmeans/localDataStorage
 
 /* FLOW
 
@@ -310,8 +310,8 @@ var handler = {
                         app_option_sets: app_option_sets,
                         app_things: app_things,
                         app_apis: app_apis,
-                        app_background_workflows: app_background_workflows,
-                        app_element_definitions: app_element_definitions,
+                        app_background_workflows: replaceKeysWithId(app_background_workflows),
+                        app_element_definitions: replaceKeysWithId(app_element_definitions),
                         app_default_styles: app_default_styles,
                         app_custom_fonts: app_custom_fonts,
                         app_custom_colors: app_custom_colors,
@@ -344,6 +344,16 @@ var handler = {
                 });
         
                 handler.bubble.send(sendImportData);
+
+                function replaceKeysWithId(json) {
+                    const newJson = {};
+                    for (const key in json) {
+                        if (json.hasOwnProperty(key) && json[key]) {
+                            newJson[json[key].id] = json[key];
+                        }
+                    }
+                    return newJson;
+                }
             })
 
             function objectToArray(obj) {
@@ -432,6 +442,8 @@ var handler = {
                         var sendData = {}
         
                         sendData['appname'] = appname;
+
+                        console.log(changed);
         
                         var recentDateKey = getMostRecentKey(changed)
                         
@@ -457,7 +469,7 @@ var handler = {
                 let maxTimestamp = -1;
             
                 for (let [key, value] of Object.entries(json)) {
-                    if (key.startsWith('_this_session_clipboard_')) {
+                    if (key.startsWith('_this_session_clipboard_') && value) {
                         let timestamp = parseInt(value);
                         if (timestamp > maxTimestamp) {
                         maxTimestamp = timestamp;
@@ -502,14 +514,14 @@ var handler = {
                             content = sendData['content_json'];
                             sendData['name'] = sendData['content_json'].display;
                             if(sendData['content_json'].fields)
-                                sendData['kind'] = "thing"
+                                sendData['kind'] = "db"
                             else
-                                sendData['kind'] = "optionset"
+                                sendData['kind'] = "option-set"
                             break;
                         case 'action':
                             content = sendData['content_json'];
                             sendData['name'] = "Backend workflow"
-                            sendData['kind'] = "action"
+                            sendData['kind'] = "backend-workflow"
                             break;
                         case 'apiconnector':
                             sendData['name'] = sendData['content_json'].pub.human
@@ -592,7 +604,7 @@ var handler = {
                     for (const [key, value] of Object.entries(json)) {
                         if (typeof value === 'string' && key == "type" && !new_path.includes('states') && !new_path.includes('properties') && !new_path.includes('actions')) {
                             if(value.includes('-')) {
-                                plugins.add(value.split('-')[0]);
+                                plugins.add(createString('plugin', 'plugin', 'unknown', value.split('-')[0]));
                                 types.push(value.split('-')[0]);
                             } else types.push(value);
                             if(DEBUG) console.log('Type: ' + value + ' found')
@@ -600,9 +612,9 @@ var handler = {
                         
                         if (typeof value === 'string' && key == "style") {
                             if(related_assets.import.app_paid && related_assets.import.app_styles[value])
-                                styles.add(createString('style', value, related_assets.import.app_styles[value].display, related_assets.import.app_styles[value]))
+                                styles.add(createString('style', 'style', value, related_assets.import.app_styles[value].display, related_assets.import.app_styles[value]))
                             else
-                                styles.add(createString('style', value, 'unknown', 'empty'))
+                                styles.add(createString('style', 'style', value, 'unknown', 'empty'))
 
                             if(DEBUG) console.log('Style: ' + value + ' found')
                         }
@@ -610,9 +622,9 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('custom.')) {
                             let thing_id = value.replace('custom.', '')
                             if(related_assets.import.app_paid && related_assets.import.app_things[thing_id])
-                                customThings.add(createString('type', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
+                                customThings.add(createString('type', 'db', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
                             else
-                                customThings.add(createString('type', thing_id, 'unknown', 'empty'))
+                                customThings.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
  
                             if(DEBUG) console.log('Thing: ' + key + ' with value ' + value + ' found')
                         }
@@ -620,9 +632,9 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('list.custom.')) {
                             let thing_id = value.replace('list.custom.', '')
                             if(related_assets.import.app_paid && related_assets.import.app_things[thing_id])
-                                customThings.add(createString('type', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
+                                customThings.add(createString('type', 'db', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
                             else
-                                customThings.add(createString('type', thing_id, 'unknown', 'empty'))
+                                customThings.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
  
                             if(DEBUG) console.log('Thing: ' + key + ' with value ' + value + ' found')
                         }
@@ -630,9 +642,9 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('option.')) {
                             let option_id = value.replace('option.', '')
                             if(related_assets.import.app_paid && related_assets.import.app_option_sets[option_id])
-                                customOptions.add(createString('type', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
+                                customOptions.add(createString('type', 'option-set', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
                             else
-                                customOptions.add(createString('type', option_id, 'unknown', 'empty'))
+                                customOptions.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
                             if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
                         }
@@ -641,9 +653,9 @@ var handler = {
 
                             let option_id = value.replace('list.option.', '')
                             if(related_assets.import.app_paid && related_assets.import.app_option_sets[option_id])
-                                customOptions.add(createString('type', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
+                                customOptions.add(createString('type', 'option-set', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
                             else
-                                customOptions.add(createString('type', option_id, 'unknown', 'empty'))
+                                customOptions.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
                             if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
                         }
@@ -651,9 +663,9 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('apiconnector2-')) {
                             let api_id = value.replace('apiconnector2-', '').split(".")[0]
                             if(related_assets.import.app_paid && related_assets.import.app_apis[api_id])
-                                ApiConnectors.add(createString('apiconnector', api_id, related_assets.import.app_apis[api_id].human, {pub: related_assets.import.app_apis[api_id]}))
+                                ApiConnectors.add(createString('apiconnector', 'apiconnector', api_id, related_assets.import.app_apis[api_id].human, {pub: related_assets.import.app_apis[api_id]}))
                             else
-                                ApiConnectors.add(createString('apiconnector', api_id, 'unknown', 'empty'))
+                                ApiConnectors.add(createString('apiconnector', 'apiconnector', api_id, 'unknown', 'empty'))
 
                             if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
 
@@ -661,12 +673,22 @@ var handler = {
                         }
                         
                         if (typeof value === 'string' && key == "api_event") {
-                            backendWorkflows.add(value);
+                            if(related_assets.import.app_paid && related_assets.import.app_background_workflows[value])
+                                backendWorkflows.add(createString('action', 'backend-workflow', value, related_assets.import.app_background_workflows[value].properties.wf_name, {data: related_assets.import.app_background_workflows[value], is_action: false, page: "api", token_width: 140}))
+                            else
+                                backendWorkflows.add(createString('action', 'backend-workflow', value, 'unknown', 'empty'))
+                                
                             if(DEBUG) console.log('Backend Workflow: ' + value + ' found')
                         }
                         
                         if (key == "type" && value == "CustomElement" && json.properties && json.properties.custom_id) {
-                            reusableElement.add(json.properties.custom_id);
+                            let element_id = json.properties.custom_id;
+                            if(related_assets.import.app_paid && related_assets.import.app_element_definitions[element_id]) {
+                                reusableElement.add(createString('element', 'reusable-element', element_id, related_assets.import.app_element_definitions[element_id].name, related_assets.import.app_element_definitions[element_id]))
+                                checkForCustomValues(related_assets.import.app_element_definitions[element_id], new_path, element_id);
+                            } else
+                                reusableElement.add(createString('element', 'reusable-element', element_id, 'unknown', 'empty'))
+                            
                             if(DEBUG) console.log('Reusable element: ' + json.properties.custom_id + ' found')
                         }
                         
@@ -678,8 +700,8 @@ var handler = {
             
                 checkForCustomValues(json, "", "");
 
-                function createString(type, display, id, content) {
-                    return type + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
+                function createString(type, kind, display, id, content) {
+                    return type + "#copynocode#" + kind + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
                 }
             
                 return {types: types, styles: Array.from(styles), plugins: Array.from(plugins), things: Array.from(customThings), options: Array.from(customOptions), apis: Array.from(ApiConnectors), backendworkflows: Array.from(backendWorkflows), reusables: Array.from(reusableElement)};
