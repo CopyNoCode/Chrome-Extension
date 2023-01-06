@@ -85,8 +85,6 @@ $(async function () {
 
     }, 500);
 
-    importBubbleData();
-
     // sidebar restore
     $(document).on('click', '#copynocode-icons .close', function () {
         sidebarRestoreClose()
@@ -213,6 +211,8 @@ top.window.addEventListener("message", function(message) {
 
     if(message.data['copynocode_loaded']) {
         if(DEBUG) console.log('copynocode is loaded')
+
+        importBubbleData();
 
         let iframe_interfall = setInterval(function () {
 
@@ -527,7 +527,13 @@ function sidebarUpdateOpen() {
     $('#copynocode-icons .show').hide();
 }
 
-function importBubbleData() {
+async function importBubbleData() {    
+    chrome.storage.local.get([ appname + "_import"]).then((data) => {
+        console.log("Import currently is " + data[appname + "_import"]);
+        let importBubbleData = data[appname + "_import"];
+        if(typeof importBubbleData === "object") sendToBubble(importBubbleData);
+    });
+
     let senddata = setInterval(async function () {
         clearInterval(senddata);
 
@@ -574,6 +580,14 @@ function importBubbleData() {
                 appname: appname
             }}
         }
+
+        var local_storage_import_obj = {};
+        
+        local_storage_import_obj[appname + "_import"] = sendImportData;
+
+        chrome.storage.local.set(local_storage_import_obj).then(() => {
+            console.log("Import is set to " + local_storage_import_obj);
+        });
 
         sendToBubble(sendImportData);
     })
