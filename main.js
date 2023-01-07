@@ -5,16 +5,18 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/cr
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
 
 // TODOs
-// Add state
-// Convert import to keys
-// Add dialogue
-// ADD fonts and colors // tokens font and tokens colors
-// Remove secure keys when copy apiconnector
-// Add secure without keys to apiconnector import
-// Filter default styles from used
-// count fields for things, listing
-// count properties for option sets, listing
-// count workflows, listing
+// Add state (1)
+// Convert import to strings (2)
+// Add dialogue / modal (2)
+// Change urls when restore (2)
+// ADD fonts and colors // tokens font and tokens colors (2)
+// Add restore for font and colors (2)
+// Remove secure keys when copy apiconnector (1)
+// Add secure without keys to apiconnector import (2)
+// Filter default styles from used (1)
+// count fields for things, listing (2)
+// count properties for option sets, listing (2)
+// count workflows, listing (2)
 
 /* FLOW
 
@@ -624,8 +626,29 @@ var handler = {
                     for (const [key, value] of Object.entries(json)) {
                         if (typeof value === 'string' && key == "type" && !new_path.includes('states') && !new_path.includes('properties') && !new_path.includes('actions')) {
                             if(value.includes('-')) {
-                                plugins.add(createString('plugin', 'plugin', value.split('-')[0], 'unknown', value.split('-')[0]))
-                                types.push(value.split('-')[0]);
+                                let plugin_id = value.split('-')[0];
+                                var name = "unknown"
+
+                                function getTitle(pluginId) {
+                                    try {
+                                        const xhr = new XMLHttpRequest();
+                                        xhr.open('GET', `https://bubble.io/api/1.1/init/data?location=https%3A%2F%2Fbubble.io%2Fplugin%2F${pluginId}`, false);
+                                        xhr.send();
+                                        if (xhr.status === 200) {
+                                        const data = JSON.parse(xhr.responseText);
+                                        console.log(data);
+                                        return data[1].data.name_text + " (" +(data[1].data.licence_text == "commercial" ? "paid" : "free" ) + ")";
+                                        }
+                                    } catch (error) {
+                                        console.error(error);
+                                    }
+                                }
+
+                                name = getTitle(plugin_id);
+
+                                plugins.add(createString('plugin', 'plugin', plugin_id, name, plugin_id));
+                                
+                                types.push(plugin_id);
                             } else types.push(value);
                             if(DEBUG) console.log('Type: ' + value + ' found')
                         }
