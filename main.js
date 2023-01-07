@@ -5,18 +5,16 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/cr
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
 
 // TODOs
-// extract id's when listen
-// CREATE RESTORE
-// ADD LOADING TO CREATE DIALOGUE EN MINIMAL SIZE
+// Add state
+// Convert import to keys
+// Add dialogue
 // ADD fonts and colors // tokens font and tokens colors
 // Remove secure keys when copy apiconnector
 // Add secure without keys to apiconnector import
 // Filter default styles from used
 // count fields for things, listing
 // count properties for option sets, listing
-// implement https://bubble.io/appeditor/get_app_owners
 // count workflows, listing
-// check https://github.com/macmcmeans/localDataStorage
 
 /* FLOW
 
@@ -48,6 +46,7 @@ const DEBUG = true;
 var url = new URL(window.location.href);
 const appname = url.searchParams.get('id');
 const platform = "bubble"
+var app_info;
 
 $(async function () {
 
@@ -56,10 +55,6 @@ $(async function () {
 });
 
 var related_assets;
-
-var clipboard = {}
-
-var changed = {}
 
 top.window.addEventListener("message", function(message) {
 
@@ -74,14 +69,16 @@ top.window.addEventListener("message", function(message) {
         handler[platform].import();
     }
 
-    if(message.data['copynocode_copy']) {
+    if(message.data['copynocode_restore']) {
         if(DEBUG) console.log('Got Data from CopyNoCode' + JSON.stringify(message.data.copynocode));
 
-        handler[platform].restore(message.data['copynocode_copy'])
+        handler[platform].restore(message.data['copynocode_restore'])
     }
 
     if(message.data['copynocode_loaded']) {
         if(DEBUG) console.log('copynocode is loaded')
+
+        handler[platform].get_app(appname);
 
         handler[platform].restore_cache(appname);
 
@@ -112,7 +109,7 @@ var handler = {
                     <iframe id="copynocode-iframe-discover" src="` + copynocode_discover + `"></iframe>
                 </div>`);
 
-                $("body").append(`<div id="copynocode-container-create">
+                $("body").append(`<div id="copynocode-container-create" class="loading">
                     <div id="copynocode-icons">
                         <span class="show"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFF" class="w-6 h-6"><path fill-rule="evenodd" d="M13.28 3.97a.75.75 0 010 1.06L6.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0zm6 0a.75.75 0 010 1.06L12.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clip-rule="evenodd" /></svg></span>
                         <span class="hide"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFF" class="w-6 h-6"> <path fill-rule="evenodd" d="M4.72 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 01-1.06-1.06L11.69 12 4.72 5.03a.75.75 0 010-1.06zm6 0a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06L17.69 12l-6.97-6.97a.75.75 0 010-1.06z" clip-rule="evenodd" /></svg></span>
@@ -121,7 +118,7 @@ var handler = {
                     <iframe id="copynocode-iframe-create" src="` + copynocode_create + `"></iframe>
                 </div>`);
 
-                $("body").append(`<div id="copynocode-container-update">
+                $("body").append(`<div id="copynocode-container-update" class="loading">
                     <div id="copynocode-icons">
                         <span class="show"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFF" class="w-6 h-6"><path fill-rule="evenodd" d="M13.28 3.97a.75.75 0 010 1.06L6.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0zm6 0a.75.75 0 010 1.06L12.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clip-rule="evenodd" /></svg></span>
                         <span class="hide"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFF" class="w-6 h-6"> <path fill-rule="evenodd" d="M4.72 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 01-1.06-1.06L11.69 12 4.72 5.03a.75.75 0 010-1.06zm6 0a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06L17.69 12l-6.97-6.97a.75.75 0 010-1.06z" clip-rule="evenodd" /></svg></span>
@@ -280,6 +277,44 @@ var handler = {
 
         },
 
+        get_app: async function(appname) {
+            let app_response = await fetch("https://bubble.io/appeditor/get_app_plan", {
+                "headers": {
+                    "accept": "application/json, text/javascript, */*; q=0.01",
+                    "content-type": "application/json"
+                },
+                "body": `{\"appname\":\"` + appname +`\",\"check_admin\":false}`,
+                "method": "POST"
+            });
+
+            let app_json = await app_response.json();
+
+            var user_response = await fetch("https://bubble.io/api/1.1/init/data?location=https%3A%2F%2Fbubble.io%2Faccount");
+            var user_json = await user_response.json()
+            var email = user_json[0].data.authentication.email.email
+
+            if(app_json) {
+                app_info = {
+                    app_paid: app_json.export_app_json,
+                    app_name: appname,
+                    app_platform: "bubble"
+                }
+                handler.bubble.send({"app": app_info})
+            } else {
+                console.log('failed to get app info')
+                console.log(app_json)
+            }
+
+            if(email)
+                handler.bubble.send({"user": {
+                    app_current_user: email
+                }})
+            else {
+                console.log('failed to get current user')
+                console.log(user_json)
+            }
+        },
+
         import: async function() {
             let senddata = setInterval(async function () {
                 clearInterval(senddata);
@@ -328,9 +363,7 @@ var handler = {
                         app_default_font: app_default_font,
                         app_default_colors: app_default_colors,
                         app_custom_colors: app_custom_colors,
-                        app_paid: true,
                         app_imported_at: new Date().valueOf(),
-                        appname: appname
                     }}
                 } else {
                     sendImportData = {"import": {
@@ -340,9 +373,7 @@ var handler = {
                         app_apis: [],
                         app_background_workflows: [],
                         app_element_definitions: [],
-                        app_paid: false,
                         app_imported_at: new Date().valueOf(),
-                        appname: appname
                     }}
                 }
 
@@ -378,16 +409,22 @@ var handler = {
         },
 
         restore: function(data) {
-            clipboard = changed;
+            
+            var restore = parseString(data);
 
-            clipboard[message.data.copynocode.key] = data.content;
-            let timestamp = Date.now();
-            clipboard["_this_session_clipboard_" + data.key] = timestamp;
-            
-            changed = clipboard;
-            
-            localStorage.setItem("bubble_" + data.key + "_clipboard_", data.content)
-            localStorage.setItem("_this_session_clipboard_bubble_" + data.key + "_clipboard_", timestamp)
+            localStorage.setItem("bubble_" + restore.type + "_clipboard_", restore.content)
+            localStorage.setItem("_this_session_clipboard_bubble_" + restore.type + "_clipboard_", new Date())
+
+            function parseString(input) {
+                const parts = input.split('#copynocode#');
+                return {
+                    type: parts[0],
+                    kind: parts[1],
+                    id: parts[2],
+                    name: parts[3],
+                    content: parts[4],
+                };
+            }
         },
 
         send: function(data) {
@@ -465,18 +502,25 @@ var handler = {
             
                                 content = sendData['content_json'];
                             }
+
+                            if(sendData['content_json'].id) sendData['id'] = sendData['content_json'].id
+                            if(sendData['content_json'][0] && sendData['content_json'][0].id) sendData['id'] = sendData['content_json'][0].id
                             break;
                         case 'element_with_workflows':
                             content = sendData['content_json'];
                             sendData['kind'] = sendData['content_json']['elements'][0].type;
+
                             if(sendData['content_json']['elements'][0].name)
                                 sendData['name'] = sendData['content_json']['elements'][0].name;
                             else
                                 sendData['name'] = sendData['content_json']['elements'][0].default_name;
+
+                            if(sendData['content_json']['elements'][0].id) sendData['id'] = sendData['content_json']['elements'][0].id
                             break;
                         case 'type':
                             content = sendData['content_json'];
                             sendData['name'] = sendData['content_json'].display;
+                            sendData['id'] = sendData['content_json'].name;
                             if(sendData['content_json'].fields)
                                 sendData['kind'] = "db"
                             else
@@ -484,21 +528,31 @@ var handler = {
                             break;
                         case 'action':
                             content = sendData['content_json'];
-                            sendData['name'] = "Backend workflow"
-                            sendData['kind'] = "backend-workflow"
+                            if(sendData['content_json'].data.properties && sendData['content_json'].data.properties.wf_name) {
+                                sendData['name'] = sendData['content_json'].data.properties.wf_name;
+                                sendData['id'] = sendData['content_json'].data.id;
+                                sendData['kind'] = "backend-workflow"
+                            } else if(sendData['content_json'].data.type) {
+                                sendData['name'] = sendData['content_json'].data.type;
+                                sendData['id'] = sendData['content_json'].data.id;
+                                sendData['kind'] = "workflow"
+                            }
                             break;
                         case 'apiconnector':
                             sendData['name'] = sendData['content_json'].pub.human
+                            sendData['id'] = sendData['content_json'].pub.id
                             sendData['kind'] = "apiconnector"
+                            sendData['content_json'].sec
                             break;
                         case 'style':
                             sendData['name'] = sendData['content_json'].display
                             sendData['kind'] = sendData['content_json'].type
+                            sendData['id'] = sendData['content_json'].id;
                             break;
             
                     }
 
-                    sendData['content'] = createString(sendData['type'], sendData['kind'], sendData['name'], 'id', sendData['content_json'])
+                    sendData['content'] = createString(sendData['type'], sendData['kind'], sendData['id'], sendData['name'], sendData['content_json'])
             
                     if(content) {
                         let related = elementGetRelated(content);
@@ -570,14 +624,14 @@ var handler = {
                     for (const [key, value] of Object.entries(json)) {
                         if (typeof value === 'string' && key == "type" && !new_path.includes('states') && !new_path.includes('properties') && !new_path.includes('actions')) {
                             if(value.includes('-')) {
-                                plugins.add(createString('plugin', 'plugin', 'unknown', value.split('-')[0]));
+                                plugins.add(createString('plugin', 'plugin', value.split('-')[0], 'unknown', value.split('-')[0]))
                                 types.push(value.split('-')[0]);
                             } else types.push(value);
                             if(DEBUG) console.log('Type: ' + value + ' found')
                         }
                         
                         if (typeof value === 'string' && key == "style") {
-                            if(related_assets.import.app_paid && related_assets.import.app_styles[value])
+                            if(app_info.app_paid && related_assets.import.app_styles[value])
                                 styles.add(createString('style', 'style', value, related_assets.import.app_styles[value].display, related_assets.import.app_styles[value]))
                             else
                                 styles.add(createString('style', 'style', value, 'unknown', 'empty'))
@@ -587,7 +641,7 @@ var handler = {
                         
                         if (typeof value === 'string' && value.startsWith('custom.')) {
                             let thing_id = value.replace('custom.', '')
-                            if(related_assets.import.app_paid && related_assets.import.app_things[thing_id])
+                            if(app_info.app_paid && related_assets.import.app_things[thing_id])
                                 customThings.add(createString('type', 'db', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
                             else
                                 customThings.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
@@ -597,7 +651,7 @@ var handler = {
                         
                         if (typeof value === 'string' && value.startsWith('list.custom.')) {
                             let thing_id = value.replace('list.custom.', '')
-                            if(related_assets.import.app_paid && related_assets.import.app_things[thing_id])
+                            if(app_info.app_paid && related_assets.import.app_things[thing_id])
                                 customThings.add(createString('type', 'db', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
                             else
                                 customThings.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
@@ -607,7 +661,7 @@ var handler = {
                         
                         if (typeof value === 'string' && value.startsWith('option.')) {
                             let option_id = value.replace('option.', '')
-                            if(related_assets.import.app_paid && related_assets.import.app_option_sets[option_id])
+                            if(app_info.app_paid && related_assets.import.app_option_sets[option_id])
                                 customOptions.add(createString('type', 'option-set', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
                             else
                                 customOptions.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
@@ -618,7 +672,7 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('list.option.')) {
 
                             let option_id = value.replace('list.option.', '')
-                            if(related_assets.import.app_paid && related_assets.import.app_option_sets[option_id])
+                            if(app_info.app_paid && related_assets.import.app_option_sets[option_id])
                                 customOptions.add(createString('type', 'option-set', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
                             else
                                 customOptions.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
@@ -628,7 +682,7 @@ var handler = {
                         
                         if (typeof value === 'string' && value.startsWith('apiconnector2-')) {
                             let api_id = value.replace('apiconnector2-', '').split(".")[0]
-                            if(related_assets.import.app_paid && related_assets.import.app_apis[api_id])
+                            if(app_info.app_paid && related_assets.import.app_apis[api_id])
                                 ApiConnectors.add(createString('apiconnector', 'apiconnector', api_id, related_assets.import.app_apis[api_id].human, {pub: related_assets.import.app_apis[api_id]}))
                             else
                                 ApiConnectors.add(createString('apiconnector', 'apiconnector', api_id, 'unknown', 'empty'))
@@ -639,7 +693,7 @@ var handler = {
                         }
                         
                         if (typeof value === 'string' && key == "api_event") {
-                            if(related_assets.import.app_paid && related_assets.import.app_background_workflows[value])
+                            if(app_info.app_paid && related_assets.import.app_background_workflows[value])
                                 backendWorkflows.add(createString('action', 'backend-workflow', value, related_assets.import.app_background_workflows[value].properties.wf_name, {data: related_assets.import.app_background_workflows[value], is_action: false, page: "api", token_width: 140}))
                             else
                                 backendWorkflows.add(createString('action', 'backend-workflow', value, 'unknown', 'empty'))
@@ -649,7 +703,7 @@ var handler = {
                         
                         if (key == "type" && value == "CustomElement" && json.properties && json.properties.custom_id) {
                             let element_id = json.properties.custom_id;
-                            if(related_assets.import.app_paid && related_assets.import.app_element_definitions[element_id]) {
+                            if(app_info.app_paid && related_assets.import.app_element_definitions[element_id]) {
                                 reusableElement.add(createString('element', 'reusable-element', element_id, related_assets.import.app_element_definitions[element_id].name, related_assets.import.app_element_definitions[element_id]))
                                 checkForCustomValues(related_assets.import.app_element_definitions[element_id], new_path, element_id);
                             } else
@@ -669,7 +723,7 @@ var handler = {
                 return {types: types, styles: Array.from(styles), plugins: Array.from(plugins), things: Array.from(customThings), options: Array.from(customOptions), apis: Array.from(ApiConnectors), backendworkflows: Array.from(backendWorkflows), reusables: Array.from(reusableElement)};
             }
             
-            function createString(type, kind, display, id, content) {
+            function createString(type, kind, id, display, content) {
                 return type + "#copynocode#" + kind + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
             }
         }

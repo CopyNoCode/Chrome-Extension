@@ -61,6 +61,11 @@
     z-index: 2147483647;
 }
 
+#copynocode-container-create.loading {
+    width: 1px;
+    height: 1px;
+}
+
 #copynocode-container-create.hide {
     width: 30px;
     height: 75px;
@@ -83,6 +88,11 @@
     display: flex;
     border-radius: 5px;
     z-index: 2147483647;
+}
+
+#copynocode-container-update.loading {
+    width: 1px;
+    height: 1px;
 }
 
 #copynocode-container-update.hide {
