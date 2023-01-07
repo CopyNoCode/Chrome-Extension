@@ -5,12 +5,16 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/cr
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
 
 // TODOs
+// extract id's when listen
 // CREATE RESTORE
 // ADD LOADING TO CREATE DIALOGUE EN MINIMAL SIZE
 // ADD fonts and colors // tokens font and tokens colors
+// Remove secure keys when copy apiconnector
+// Add secure without keys to apiconnector import
 // Filter default styles from used
 // count fields for things, listing
 // count properties for option sets, listing
+// implement https://bubble.io/appeditor/get_app_owners
 // count workflows, listing
 // check https://github.com/macmcmeans/localDataStorage
 
@@ -268,7 +272,10 @@ var handler = {
             chrome.storage.local.get(['bubble_' + appname + "_copy"]).then((data) => {
                 if(data) console.log("Restore Import from cache");
                 let importBubbleData = data['bubble_' + appname + "_copy"];
-                if(typeof importBubbleData === "object") handler.bubble.send(importBubbleData);
+                if(typeof importBubbleData === "object")  {
+                    handler.bubble.send(importBubbleData);
+                    $('#copynocode-btn.create').show();
+                }
             });
 
         },
@@ -300,6 +307,10 @@ var handler = {
                     const app_custom_fonts = json.settings.client_safe.font_tokens_user.default;
 
                     const app_custom_colors = json.settings.client_safe.color_tokens_user.default;
+
+                    const app_default_font = json.settings.client_safe.font_tokens;
+
+                    const app_default_colors = json.settings.client_safe.color_tokens;
         
                     const app_background_workflows = json.api
         
@@ -314,6 +325,8 @@ var handler = {
                         app_element_definitions: replaceKeysWithId(app_element_definitions),
                         app_default_styles: app_default_styles,
                         app_custom_fonts: app_custom_fonts,
+                        app_default_font: app_default_font,
+                        app_default_colors: app_default_colors,
                         app_custom_colors: app_custom_colors,
                         app_paid: true,
                         app_imported_at: new Date().valueOf(),
@@ -395,101 +408,52 @@ var handler = {
         },
 
         listen: function() {
-            let iframe_interfall = setInterval(function () {
-                console.log('checking localstorage')
+            
+            console.log('listening for changes in local storage')
 
-                changed = {
-                    "bubble_element_clipboard": localStorage.getItem('bubble_element_clipboard'),
-                    "_this_session_clipboard_bubble_element_clipboard": localStorage.getItem('_this_session_clipboard_bubble_element_clipboard'),
-            
-                    "bubble_element_with_workflows_clipboard": localStorage.getItem('bubble_element_with_workflows_clipboard'),
-                    "_this_session_clipboard_bubble_element_with_workflows_clipboard": localStorage.getItem('_this_session_clipboard_bubble_element_with_workflows_clipboard'),
-            
-                    "bubble_action_clipboard": localStorage.getItem('bubble_action_clipboard'),
-                    "_this_session_clipboard_bubble_action_clipboard": localStorage.getItem('_this_session_clipboard_bubble_action_clipboard'),
-            
-                    "bubble_type_clipboard": localStorage.getItem('bubble_type_clipboard'),
-                    "_this_session_clipboard_bubble_type_clipboard": localStorage.getItem('_this_session_clipboard_bubble_type_clipboard'),
-            
-                    "bubble_style_clipboard": localStorage.getItem('bubble_style_clipboard'),
-                    "_this_session_clipboard_bubble_style_clipboard": localStorage.getItem('_this_session_clipboard_bubble_style_clipboard'),
-            
-                    "bubble_apiconnector_clipboard": localStorage.getItem('bubble_apiconnector_clipboard'),
-                    "_this_session_clipboard_bubble_apiconnector_clipboard": localStorage.getItem('_this_session_clipboard_bubble_apiconnector_clipboard'),
-            
-                    /*
-                    "bubble_composer_expression_clipboard": localStorage.getItem('bubble_composer_expression_clipboard'),
-                    "_this_session_clipboard_bubble_composer_expression_clipboard": localStorage.getItem('_this_session_clipboard_bubble_composer_expression_clipboard'),
-            
-                    "bubble_composer_clipboard": localStorage.getItem('bubble_composer_clipboard'),
-                    "_this_session_clipboard_bubble_composer_clipboard": localStorage.getItem('_this_session_clipboard_bubble_composer_clipboard'),
-            
-                    "bubble_element_states_clipboard": localStorage.getItem('bubble_element_states_clipboard'),
-                    "_this_session_clipboard_bubble_element_states_clipboard": localStorage.getItem('_this_session_clipboard_bubble_element_states_clipboard'),
-                    */
-                }
-    
-                if(JSON.stringify(clipboard) == JSON.stringify(changed)) {
-                    // console.log('related assets' + JSON.stringify(related_assets));
-                } else {
-                    if(!related_assets) {
-                        console.log('waiting for import')
-                    } else {
-                        console.log('Change found in localstorage')
-    
-                        $('#nocodecopy-btn.create').show();
-                        
-                        var sendData = {}
-        
-                        sendData['appname'] = appname;
+            top.window.addEventListener('storage', (event) => {
+                if (!event.key) { return; }
+                if (event.key.indexOf('global_clipboard_message_') != 0) { return; }
+                if (!event.newValue) { return; }
 
-                        console.log(changed);
-        
-                        var recentDateKey = getMostRecentKey(changed)
-                        
-                        var recentContentKey = recentDateKey.replace('_this_session_clipboard_bubble_', '')
-        
-                        sendData['type'] = recentContentKey.replace('_clipboard', '');
-        
-                        sendData['content'] = changed["bubble_" + recentContentKey];
-        
-                        if(DEBUG) console.log('CopyNoCode found ' + sendData['type'] + ' with ' + "bubble_" + recentContentKey)
-        
-                        extractData(sendData);
-        
-                        clipboard = changed;
-                    }
-                }
-    
-            }, 1000);
+                console.log('processing storage event ' + event.key)
 
-            function getMostRecentKey(json) {
-                // get most recent key
-                let mostRecentKey = null;
-                let maxTimestamp = -1;
-            
-                for (let [key, value] of Object.entries(json)) {
-                    if (key.startsWith('_this_session_clipboard_') && value) {
-                        let timestamp = parseInt(value);
-                        if (timestamp > maxTimestamp) {
-                        maxTimestamp = timestamp;
-                        mostRecentKey = key;
-                        }
-                    }
+                let json;
+                try {
+                    console.log('try to parse')
+                    console.log(event)
+                    if(event.newValue) json = JSON.parse(event.newValue);
+                } catch (e) {
+                    console.log('cant parse')
                 }
-            
-                return mostRecentKey;
-            }
+
+                if(json.key && typeof json.data === "object") {
+                    console.log('LocalStorage: data found')
+                    console.log(json);
+
+                    var sendData = {}
+
+                    sendData['type'] = json.key.replace('bubble_', '').replace('_clipboard', '')
+                    sendData['data'] = JSON.stringify(json.data);
+
+                    $('#copynocode-btn.create').show();
+
+                    sendData['appname'] = appname;
+
+                    extractData(sendData);
+                } else console.log('LocalStorage: no data found')
+            })
 
             function extractData(sendData) {
-                if(sendData['content']) {   
+                if(sendData['data']) {   
                     let content;
             
-                    sendData['content_json'] = JSON.parse(sendData['content']);
+                    sendData['content_json'] = JSON.parse(sendData['data']);
                     switch (sendData['type']) {
                         case 'element':
                             content = sendData['content_json'];
                             if(sendData['content_json'][0]) {
+                                
                                 sendData['kind'] = sendData['content_json'][0].type;
                                 if(sendData['content_json'][0].name)
                                     sendData['name'] = sendData['content_json'][0].name;
@@ -533,6 +497,8 @@ var handler = {
                             break;
             
                     }
+
+                    sendData['content'] = createString(sendData['type'], sendData['kind'], sendData['name'], 'id', sendData['content_json'])
             
                     if(content) {
                         let related = elementGetRelated(content);
@@ -699,13 +665,13 @@ var handler = {
                 }
             
                 checkForCustomValues(json, "", "");
-
-                function createString(type, kind, display, id, content) {
-                    return type + "#copynocode#" + kind + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
-                }
             
                 return {types: types, styles: Array.from(styles), plugins: Array.from(plugins), things: Array.from(customThings), options: Array.from(customOptions), apis: Array.from(ApiConnectors), backendworkflows: Array.from(backendWorkflows), reusables: Array.from(reusableElement)};
-            } 
+            }
+            
+            function createString(type, kind, display, id, content) {
+                return type + "#copynocode#" + kind + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
+            }
         }
     }
 }
