@@ -19,8 +19,8 @@
     "content_scripts": [
         {
             "matches": ["*://*.bubble.io/page*"],
-            "js": ["jquery.min.js", "main.js"],
-            "css": ["style.css"],
+            "js": ["jquery.min.js", "notyf.min.js", "main.js"],
+            "css": ["style.css", "notyf.min.css"],
             "resources": ["icon.png"]
         }
     ]

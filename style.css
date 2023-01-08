@@ -20,6 +20,11 @@
     display: flex; z-index: 2147483647; text-align: center; width: 100%; vertical-align: middle; height: 100%; position: absolute; background-color: rgba(87,211,159, 0.2);align-items: center;justify-content: center;
 }
 
+#copynocode-container-discover.loading {
+    width: 1px;
+    height: 1px;
+}
+
 #copynocode-iframe-discover {
     background-color: #FFF; border: 2px solid #57d39f; border-radius: 5px; width: 80%; height: 80%;
 }

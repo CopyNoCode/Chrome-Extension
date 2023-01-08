@@ -5,25 +5,20 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/cr
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
 
 // TODOs
-// Add state (1)
-// Convert import to strings (2)
-// Add dialogue / modal (2)
-// Change urls when restore (2)
 // ADD fonts and colors // tokens font and tokens colors (2)
-// Add restore for font and colors (2)
-// Remove secure keys when copy apiconnector (1)
-// Add secure without keys to apiconnector import (2)
-// Filter default styles from used (1)
-// count fields for things, listing (2)
-// count properties for option sets, listing (2)
-// count workflows, listing (2)
+// ADD restore for font and colors (2)
+// REMOVE secure keys when copy apiconnector (1)
+// ADD secure without keys to apiconnector import (2)
+// REMOVE default styles from related (1)
+// Bubble plugin
+// FIX if reload of iframe (resend all recent data of cache)
 
 /* FLOW
 
 Start
 1. Create discover, create, update and restore elements
 2. STATE = LOADING (on load create iframe)
-3. Detect platform & appname
+3. Detect PLATFORM & appname
 4. Check cache for import and copy, and send it
 5. Start listening for copy
 5. Refresh IMPORT
@@ -46,17 +41,31 @@ const DEBUG = true;
 
 // get appname
 var url = new URL(window.location.href);
-const appname = url.searchParams.get('id');
-const platform = "bubble"
-var app_info;
+const APPNAME = url.searchParams.get('id');
+const PLATFORM = "bubble";
+var APP_INFO;
+var STATE;
+var NOTYF;
 
 $(async function () {
 
-    handler.general.create_ui(platform, appname);
+    handler.general.create_ui();
     
 });
 
-var related_assets;
+var related_assets = {
+    app_styles: {},
+    app_option_sets: {},
+    app_dbs: {},
+    app_api_connectors: {},
+    app_background_workflows: {},
+    app_reusable_elements: {},
+    app_default_styles: {},
+    app_custom_fonts: {},
+    app_custom_colors: {},
+    app_default_font: {},
+    app_default_colors: {}
+}
 
 top.window.addEventListener("message", function(message) {
 
@@ -68,37 +77,64 @@ top.window.addEventListener("message", function(message) {
     }
 
     if(message.data['copynocode_import']) {
-        handler[platform].import();
+        handler[PLATFORM].import();
     }
 
     if(message.data['copynocode_restore']) {
-        if(DEBUG) console.log('Got Data from CopyNoCode' + JSON.stringify(message.data.copynocode));
+        if(DEBUG) {
+            logMessage('notice', 'CopyNoCode: Got Data from CopyNoCode');
+            console.log(message.data['copynocode_restore'])
+        }
 
-        handler[platform].restore(message.data['copynocode_restore'])
+        handler[PLATFORM].restore(message.data['copynocode_restore'])
     }
 
     if(message.data['copynocode_loaded']) {
-        if(DEBUG) console.log('copynocode is loaded')
+        if(DEBUG) {
+            logMessage('event', 'CopyNoCode: Loaded');
+        }
 
-        handler[platform].get_app(appname);
+        handler[PLATFORM].state('LOADING');
 
-        handler[platform].restore_cache(appname);
+        handler[PLATFORM].get_app();
 
-        handler[platform].import();
+        handler[PLATFORM].restore_cache();
 
-        handler[platform].listen();
+        handler[PLATFORM].import();
+
+        handler[PLATFORM].listen();
+
+        handler[PLATFORM].state('READY');
     }
 });
 
 var handler = {
     "general": {
-        create_ui: function(platform, type) {
+        create_ui: function() {
             var link = document.createElement("link");
             link.rel = "stylesheet";
             link.href = chrome.runtime.getURL("style.css");
             document.head.appendChild(link);
 
-            if(DEBUG) console.log('loading CopyNoCode')
+            var link_notif_css = document.createElement('link')
+            link_notif_css.rel = 'stylesheet'
+            link_notif_css.href = chrome.runtime.getURL("notyf.min.css");
+            document.head.appendChild(link_notif_css)
+
+            var link_notif_js = document.createElement('script')
+            link_notif_js.src = chrome.runtime.getURL("notyf.min.js");
+            document.head.appendChild(link_notif_js)
+
+            // Create an instance of Notyf
+            NOTYF = new Notyf({
+                duration: 3000,
+                position: {x:'center', y:'top'},
+                dismissible: true
+            });
+
+            if(DEBUG) {
+                logMessage('notice', 'CopyNoCode: Creating UI');
+            }
             
             let copynocodeui = setInterval(function () {
                 if ($(".main-tab-bar").length) {
@@ -107,7 +143,7 @@ var handler = {
                     $(".main-tab-bar").append('<div class="tab create" id="copynocode-btn"><img id="copynocode-icon" src="https://s3.amazonaws.com/appforest_uf/f1672312679295x617020231160427600/copynocode-icon.png" width=21 height=21><span>Create</span></div>');
                 }
 
-                $("body").append(`<div id="copynocode-container-discover">
+                $("body").append(`<div id="copynocode-container-discover" class="loading">
                     <iframe id="copynocode-iframe-discover" src="` + copynocode_discover + `"></iframe>
                 </div>`);
 
@@ -138,21 +174,42 @@ var handler = {
                     <iframe id="copynocode-iframe-restore" src="` + copynocode_restore + `"></iframe>
                 </div>`);
 
+                let create_loaded = false
+                let update_loaded = false
+                let discover_loaded = false
+
                 $('#copynocode-iframe-create').on('load', function() {
                     
-                    handler.general.switchState('create', 'close');
+                    handler.general.switchState('create', 'close')
+                    $('#copynocode-container-create').removeClass('loading')
                     
-                    top.window.postMessage({"copynocode_loaded": true}, "*")
+                    create_loaded = true
                 })
 
                 $('#copynocode-iframe-update').on('load', function() {
                     
-                    handler.general.switchState('update', 'close');
+                    handler.general.switchState('update', 'close')
+                    $('#copynocode-container-update').removeClass('loading')
                     
+                    update_loaded = true
                 })
 
-                handler.general.switchState('discover', 'close');
-                handler.general.switchState('restore', 'close');
+                $('#copynocode-iframe-discover').on('load', function() {
+                    
+                    handler.general.switchState('discover', 'close')
+                    $('#copynocode-container-discover').removeClass('loading')
+                    
+                    discover_loaded = true
+                })
+
+                let intervalId = setInterval(function() {
+                    if (create_loaded && update_loaded && discover_loaded) {
+                      top.window.postMessage({"copynocode_loaded": true}, "*")
+                      clearInterval(intervalId)
+                    }
+                }, 500)
+                
+                handler.general.switchState('restore', 'close')
 
             }, 500);
 
@@ -259,33 +316,47 @@ var handler = {
 
     "bubble": {
 
-        restore_cache: function(appname) {
+        restore_cache: function() {
 
-            chrome.storage.local.get(['bubble_' + appname + "_import"]).then((data) => {
-                if(data) console.log("Restore Import from cache");
-                let importBubbleData = data['bubble_' + appname + "_import"];
-                if(typeof importBubbleData === "object") handler.bubble.send(importBubbleData);
-                related_assets = importBubbleData;
+            chrome.storage.local.get(['bubble_' + APPNAME + "_import"]).then((data) => {
+                if(DEBUG) {
+                    logMessage('notice', 'CopyNoCode: Restore import from cache');
+                    console.log(data)
+                }
+                let importBubbleData = data['bubble_' + APPNAME + "_import"];
+                if(typeof importBubbleData != {}) handler.bubble.send('import (cache)', importBubbleData);
             });
 
-            chrome.storage.local.get(['bubble_' + appname + "_copy"]).then((data) => {
-                if(data) console.log("Restore Import from cache");
-                let importBubbleData = data['bubble_' + appname + "_copy"];
-                if(typeof importBubbleData === "object")  {
-                    handler.bubble.send(importBubbleData);
+            chrome.storage.local.get(['bubble_' + APPNAME + "_related"]).then((data) => {
+                if(DEBUG) {
+                    logMessage('notice', 'CopyNoCode: Restore related from cache');
+                    console.log(data)
+                }
+                let relatedBubbleData = data['bubble_' + APPNAME + "_related"];
+                if(typeof relatedBubbleData != {}) related_assets = relatedBubbleData;
+            });
+
+            chrome.storage.local.get(['bubble_' + APPNAME + "_copy"]).then((data) => {
+                if(DEBUG) {
+                    logMessage('notice', 'CopyNoCode: Restore copy from cache');
+                    console.log(data)
+                }
+                let copyBubbleData = data['bubble_' + APPNAME + "_copy"];
+                if(copyBubbleData != {})  {
+                    handler.bubble.send('copy (cache)', copyBubbleData);
                     $('#copynocode-btn.create').show();
                 }
             });
 
         },
 
-        get_app: async function(appname) {
+        get_app: async function() {
             let app_response = await fetch("https://bubble.io/appeditor/get_app_plan", {
                 "headers": {
                     "accept": "application/json, text/javascript, */*; q=0.01",
                     "content-type": "application/json"
                 },
-                "body": `{\"appname\":\"` + appname +`\",\"check_admin\":false}`,
+                "body": `{\"appname\":\"` + APPNAME +`\",\"check_admin\":false}`,
                 "method": "POST"
             });
 
@@ -296,37 +367,45 @@ var handler = {
             var email = user_json[0].data.authentication.email.email
 
             if(app_json) {
-                app_info = {
-                    app_paid: app_json.export_app_json,
-                    app_name: appname,
-                    app_platform: "bubble"
+                APP_INFO = {
+                    paid: app_json.export_app_json,
+                    name: APPNAME,
+                    platform: "bubble"
                 }
-                handler.bubble.send({"app": app_info})
+                handler.bubble.send('app', {"app": APP_INFO})
             } else {
-                console.log('failed to get app info')
-                console.log(app_json)
+                if(DEBUG) {
+                    logMessage('error', 'CopyNoCode: Failed to get App Plan');
+                    console.log(app_json)
+                }
             }
 
             if(email)
-                handler.bubble.send({"user": {
-                    app_current_user: email
+                handler.bubble.send('user', {"user": {
+                    email: email
                 }})
             else {
-                console.log('failed to get current user')
-                console.log(user_json)
+                if(DEBUG) {
+                    logMessage('error', 'CopyNoCode: Failed to get current user');
+                    console.log(user_json)
+                }
             }
         },
 
         import: async function() {
+            handler[PLATFORM].state('LOADING');
+
             let senddata = setInterval(async function () {
                 clearInterval(senddata);
         
-                var app_import = await fetch('https://bubble.io/appeditor/export/test/' + appname + '.bubble')
+                var app_import = await fetch('https://bubble.io/appeditor/export/test/' + APPNAME + '.bubble')
                 
                 var json = await app_import.json()
 
-                console.log('Loaded bubble defaults')
-                console.log(json)
+                if(DEBUG) {
+                    logMessage('notice', 'CopyNoCode: Import (refresh) of data');
+                    console.log(json)
+                }
         
                 let sendImportData = {}
         
@@ -335,61 +414,138 @@ var handler = {
         
                     const app_option_sets = json.option_sets
         
-                    const app_things = json.user_types
+                    const app_dbs = json.user_types
         
-                    const app_apis = json.settings.client_safe.apiconnector2
+                    const app_api_connectors = json.settings.client_safe.apiconnector2
 
                     const app_default_styles = json.settings.client_safe.default_styles;
 
-                    const app_custom_fonts = json.settings.client_safe.font_tokens_user.default;
+                    const app_custom_fonts = (json.settings.client_safe.font_tokens_user.default ? json.settings.client_safe.font_tokens_user.default : {});
 
-                    const app_custom_colors = json.settings.client_safe.color_tokens_user.default;
+                    const app_custom_colors = (json.settings.client_safe.color_tokens_user.default ? json.settings.client_safe.color_tokens_user.default : {});
 
-                    const app_default_font = json.settings.client_safe.font_tokens;
+                    const app_default_font = (json.settings.client_safe.font_tokens ? json.settings.client_safe.font_tokens : {
+                        "default": "Lato"
+                    })
 
-                    const app_default_colors = json.settings.client_safe.color_tokens;
-        
+                    const app_default_colors = (json.settings.client_safe.color_tokens ? json.settings.client_safe.color_tokens : {
+                        "alert": {
+                            "default": "rgba(250, 181, 21, 1)"
+                        },
+                        "background": {
+                            "default": "rgba(255, 255, 255, 0)"
+                        },
+                        "destructive": {
+                            "default": "rgba(255, 0, 0, 1)"
+                        },
+                        "primary": {
+                            "default": "rgba(53,55,226,1)"
+                        },
+                        "primary_contrast": {
+                            "default": "rgba(255, 255, 255, 1)"
+                        },
+                        "success": {
+                            "default": "rgba(23, 219, 78, 1)"
+                        },
+                        "surface": {
+                            "default": "rgba(255, 255, 255, 1)"
+                        },
+                        "text": {
+                            "default": "rgba(9, 23, 71, 1)"
+                        }
+                    });
+
                     const app_background_workflows = json.api
         
-                    const app_element_definitions = json.element_definitions
-        
-                    sendImportData = {"import": {
+                    const app_reusable_elements = json.element_definitions
+
+                    related_assets = {
                         app_styles: app_styles,
                         app_option_sets: app_option_sets,
-                        app_things: app_things,
-                        app_apis: app_apis,
+                        app_dbs: app_dbs,
+                        app_api_connectors: app_api_connectors,
                         app_background_workflows: replaceKeysWithId(app_background_workflows),
-                        app_element_definitions: replaceKeysWithId(app_element_definitions),
-                        app_default_styles: app_default_styles,
+                        app_reusable_elements: replaceKeysWithId(app_reusable_elements),
                         app_custom_fonts: app_custom_fonts,
-                        app_default_font: app_default_font,
-                        app_default_colors: app_default_colors,
                         app_custom_colors: app_custom_colors,
-                        app_imported_at: new Date().valueOf(),
+                        app_default_styles: app_default_styles,
+                        app_default_font: app_default_font,
+                        app_default_colors: app_default_colors
+                    }
+
+                    if(DEBUG) {
+                        logMessage('info', 'CopyNoCode: Related assets set to:');
+                        console.log(related_assets)
+                    }
+        
+                    sendImportData = {"import": {
+                        app_styles: objectToStrings('styles', app_styles),
+                        app_option_sets: objectToStrings('option-sets', app_option_sets),
+                        app_dbs: objectToStrings('dbs', app_dbs),
+                        app_api_connectors: objectToStrings('api-connectors', app_api_connectors),
+                        app_background_workflows: objectToStrings('background-workflows', replaceKeysWithId(app_background_workflows)),
+                        app_reusable_elements: objectToStrings('reusable-elements', replaceKeysWithId(app_reusable_elements)),
+                        app_custom_fonts: objectToStrings('custom_fonts', app_custom_fonts),
+                        app_custom_colors: objectToStrings('custom_colors', app_custom_colors),
+                        app_default_styles: objectToStrings('default_styles', app_default_styles),
+                        app_default_font: objectToStrings('default_font', app_default_font),
+                        app_default_colors: objectToStrings('default_colors', app_default_colors),
+                        app_imported_at: new Date().valueOf()
                     }}
                 } else {
                     sendImportData = {"import": {
-                        app_styles: [],
-                        app_option_sets: [],
-                        app_things: [],
-                        app_apis: [],
-                        app_background_workflows: [],
-                        app_element_definitions: [],
-                        app_imported_at: new Date().valueOf(),
+                        related_assets
                     }}
                 }
-
-                related_assets = sendImportData;
         
                 var local_storage_import_obj = {};
                 
-                local_storage_import_obj["bubble_" + appname + "_import"] = sendImportData;
+                local_storage_import_obj["bubble_" + APPNAME + "_import"] = sendImportData;
         
                 chrome.storage.local.set(local_storage_import_obj).then(() => {
-                    console.log("Import is set to " + local_storage_import_obj);
+                    if(DEBUG) {
+                        logMessage('info', 'CopyNoCode: Import (cache) set to');
+                        console.log(local_storage_import_obj)
+                    }
+                });
+
+                var local_storage_related_obj = {};
+                
+                local_storage_related_obj["bubble_" + APPNAME + "_related"] = related_assets;
+        
+                chrome.storage.local.set(local_storage_related_obj).then(() => {
+                    if(DEBUG) {
+                        logMessage('info', 'CopyNoCode: Related (cache) set to:');
+                        console.log(related_assets)
+                    }
                 });
         
-                handler.bubble.send(sendImportData);
+                handler.bubble.send('import (refresh)', sendImportData);
+
+                handler[PLATFORM].state('READY');
+
+                function objectToStrings(type, obj) {
+                    switch(type) {
+                        case 'styles':
+                            return Object.entries(obj).map(([key, value]) => `style#copynocode#style#copynocode#${value.display}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                        case 'dbs':
+                            return Object.entries(obj).map(([key, value]) => `type#copynocode#db#copynocode#${value.display}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                        case 'option-sets':
+                            return Object.entries(obj).map(([key, value]) => `type#copynocode#option-set#copynocode#${value.display}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                        case 'api-connectors':
+                            return Object.entries(obj).map(([key, value]) => `apiconnector#copynocode#apiconnector#copynocode#${value.human}#copynocode#${key}#copynocode#${JSON.stringify({pub: value})}`);
+                        case 'background-workflows':
+                            return Object.entries(obj).map(([key, value]) => `action#copynocode#background-workflows#copynocode#${value.properties.wf_name}#copynocode#${key}#copynocode#${JSON.stringify({data: value, is_action: false, page: "api", token_width: 140})}`);
+                        case 'reusable-elements':
+                            return Object.entries(obj).map(([key, value]) => `element#copynocode#reusable-element           #copynocode#${value.name}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                        default:
+                            // TODO fix other types
+                            if(DEBUG) {
+                                logMessage('error', 'CopyNoCode: Missing ' + type + ' to convert to string');
+                                console.log(obj)
+                            }
+                    }
+                }
 
                 function replaceKeysWithId(json) {
                     const newJson = {};
@@ -401,21 +557,43 @@ var handler = {
                     return newJson;
                 }
             })
-
-            function objectToArray(obj) {
-                if (Object.keys(obj).length === 0 || Object.values(obj).includes(undefined)) {
-                    return [];
-                }
-                return Object.entries(obj).map(([key, value]) => `${key}#copynocode#${JSON.stringify(value)}`);
-            }
         },
 
         restore: function(data) {
+
+            handler[PLATFORM].state('LOADING');
             
             var restore = parseString(data);
 
             localStorage.setItem("bubble_" + restore.type + "_clipboard_", restore.content)
             localStorage.setItem("_this_session_clipboard_bubble_" + restore.type + "_clipboard_", new Date())
+            
+            switch (restore.type) {
+                case 'element':
+                case 'element_with_workflow':
+                    $('.tabs-1').click();
+                    break;
+                case 'type':
+                    $('.tabs-3').click();
+                    if(data.kind == "option-set") $('.tab-caption.option.sets').click();
+                    break;
+                case 'style':
+                    $('.tabs-4').click();
+                    break;
+                case 'plugin':
+                    $('.tabs-5').click();
+                    break;
+                case 'apiconnector':
+                    $('.tabs-5').click();
+                    break;
+                case 'action':
+                    $('.context-menu-item.backend_workflows').click();
+                    break;
+            }
+
+            NOTYF.success(restore.kind + ' to your clipboard');
+
+            handler[PLATFORM].state('READY');
 
             function parseString(input) {
                 const parts = input.split('#copynocode#');
@@ -429,46 +607,54 @@ var handler = {
             }
         },
 
-        send: function(data) {
+        send: function(display, data) {
             try{
                 var send = {
                     "copynocode": data
                 }
-                console.log('sending data to bubble')
-                console.log(send)
+                if(DEBUG) {
+                    logMessage('notice', 'CopyNoCode: Send ' + display + ' to CopyNoCode');
+                    console.log(send)
+                }
                 var iframe_create = document.getElementById("copynocode-iframe-create");
                 if(iframe_create != null) iframe_create.contentWindow.postMessage(send, "*");
         
                 var iframe_update = document.getElementById("copynocode-iframe-update");
                 if(iframe_update != null) iframe_update.contentWindow.postMessage(send, "*");
+
+                var iframe_discover = document.getElementById("copynocode-iframe-discover");
+                if(iframe_discover != null) iframe_discover.contentWindow.postMessage(send, "*");
             } catch(e) {
                 alert(e);
             }
         },
 
         listen: function() {
-            
-            console.log('listening for changes in local storage')
-
             top.window.addEventListener('storage', (event) => {
                 if (!event.key) { return; }
                 if (event.key.indexOf('global_clipboard_message_') != 0) { return; }
                 if (!event.newValue) { return; }
 
-                console.log('processing storage event ' + event.key)
+                handler[PLATFORM].state('LOADING');
+
+                if(DEBUG) {
+                    logMessage('event', 'CopyNoCode: LocalStorage changed for ' + event.key);
+                }
 
                 let json;
                 try {
-                    console.log('try to parse')
-                    console.log(event)
                     if(event.newValue) json = JSON.parse(event.newValue);
                 } catch (e) {
-                    console.log('cant parse')
+                    if(DEBUG) {
+                        logMessage('error', "CopyNoCode: Can't parse localstorage for " + event.key);
+                    }
                 }
 
                 if(json.key && typeof json.data === "object") {
-                    console.log('LocalStorage: data found')
-                    console.log(json);
+                    if(DEBUG) {
+                        logMessage('event', 'CopyNoCode: LocalStorage data found');
+                        console.log(json)
+                    }
 
                     var sendData = {}
 
@@ -477,10 +663,16 @@ var handler = {
 
                     $('#copynocode-btn.create').show();
 
-                    sendData['appname'] = appname;
-
                     extractData(sendData);
-                } else console.log('LocalStorage: no data found')
+
+                    handler[PLATFORM].state('READY');
+                } else {
+                    handler[PLATFORM].state('READY');
+
+                    if(DEBUG) {
+                        logMessage('error', 'CopyNoCode: LocalStorage no data found');
+                    }
+                }
             })
 
             function extractData(sendData) {
@@ -558,72 +750,113 @@ var handler = {
             
                     if(content) {
                         let related = elementGetRelated(content);
-                        sendData['types_used'] = related.types
-                        sendData['styles_used'] = related.styles
-                        sendData['plugins_used'] = related.plugins
-                        sendData['things_used'] = related.things
-                        sendData['options_used'] = related.options
-                        sendData['backend_workflows_used'] = related.backendworkflows
-                        sendData['apis_used'] = related.apis
-                        sendData['reusables_used'] = related.reusables
+                        sendData['related_styles'] = related.styles
+                        sendData['related_plugins'] = related.plugins
+                        sendData['related_dbs'] = related.dbs
+                        sendData['related_option_sets'] = related.option_sets
+                        sendData['related_backend_workflows'] = related.background_workflows
+                        sendData['related_api_connectors'] = related.api_connectors
+                        sendData['related_reusable_elements'] = related.reusable_elements
+
+                        sendData['related_fonts'] = []
+
+                        sendData['related_colors'] = []
             
                         sendData['related_count'] = 0;
             
-                        if (typeof sendData['styles_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['styles_used'].length;
+                        if (typeof sendData['related_styles'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_styles'].length;
                         }
-                        if (typeof sendData['plugins_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['plugins_used'].length;
+                        if (typeof sendData['related_plugins'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_plugins'].length;
                         }
-                        if (typeof sendData['things_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['things_used'].length;
+                        if (typeof sendData['related_dbs'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_dbs'].length;
                         }
-                        if (typeof sendData['options_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['options_used'].length;
+                        if (typeof sendData['related_option_sets'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_option_sets'].length;
                         }
-                        if (typeof sendData['backend_workflows_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['backend_workflows_used'].length;
+                        if (typeof sendData['related_backend_workflows'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_backend_workflows'].length;
                         }
-                        if (typeof sendData['apis_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['apis_used'].length;
+                        if (typeof sendData['related_api_connectors'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_api_connectors'].length;
                         }
-                        if (typeof sendData['reusables_used'] !== 'undefined') {
-                        sendData['related_count'] += sendData['reusables_used'].length;
+                        if (typeof sendData['related_reusable_elements'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_reusable_elements'].length;
                         }
+                        if (typeof sendData['related_fonts'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_fonts'].length;
+                        }
+                        if (typeof sendData['related_colors'] !== 'undefined') {
+                        sendData['related_count'] += sendData['related_colors'].length;
+                        }
+
+                        sendData['stats_element_types'] = related.element_types;
+                        sendData['stats_element_types_count'] = related.element_types.length;
+
+                        sendData['stats_element_types_unique'] = related.element_types_unique;
+                        sendData['stats_element_types_unique_count'] = related.element_types_unique.length;
+
+                        sendData['stats_workflows'] = related.workflows;
+                        sendData['stats_workflows_count'] = related.workflows.length;
+
+                        sendData['stats_db_fields'] = related.db_fields;
+                        sendData['stats_db_fields_count'] = related.db_fields.length;
+
+                        sendData['stats_options_set_values'] = related.option_set_attributes;
+                        sendData['stats_options_set_values_count'] = related.option_set_attributes.length;
                     }
 
                     var local_storage_copy_obj = {};
                 
-                    local_storage_copy_obj["bubble_" + appname + "_copy"] = {"copied": sendData};
+                    local_storage_copy_obj["bubble_" + APPNAME + "_copy"] = {"copied": sendData};
             
                     chrome.storage.local.set(local_storage_copy_obj).then(() => {
-                        console.log("Copy is set to " + local_storage_copy_obj);
+                        if(DEBUG) {
+                            logMessage('event', 'CopyNoCode: Copy cache set to');
+                            console.log(local_storage_copy_obj)
+                        }
                     });
     
-                    handler.bubble.send({"copied": sendData});
+                    handler.bubble.send('copy (refresh)', {"copied": sendData});
                 }
             
                 return sendData;
             }
             
             function elementGetRelated(json) {
-                const customThings = new Set();
-                const customOptions = new Set();
-                const backendWorkflows = new Set();
-                const ApiConnectors = new Set();
+                const dbs = new Set();
+                const option_sets = new Set();
+                const backend_workflows = new Set();
+                const api_connectors = new Set();
                 const styles = new Set();
                 const plugins = new Set();
-                const types = new Array();
-                const reusableElement = new Set();
+                const element_types = new Array();
+                const element_types_unique = new Set();
+                const reusable_elements = new Set();
+                const workflows = new Set();
+                const db_fields = new Set();
+                const option_set_attributes = new Set();
+                const fonts = new Set();
+                const colors = new Set();
             
                 function checkForCustomValues(json, path, parent) {
                     let new_path = "";
                     if(path != "" && parent != "") new_path = path + '.' + parent;
                     else if(path == "" && parent != "") new_path = parent;
-            
-                    if(DEBUG) console.log('check path ' + new_path)
+
+                    if(DEBUG) {
+                        logMessage('info', 'CopyNoCode: Check path ' + new_path);
+                        console.log(json)
+                    }
             
                     for (const [key, value] of Object.entries(json)) {
+                        if (parent == "workflows") {
+                            workflows.add(value.id)
+                        }
+
+                        // PLUGIN
                         if (typeof value === 'string' && key == "type" && !new_path.includes('states') && !new_path.includes('properties') && !new_path.includes('actions')) {
                             if(value.includes('-')) {
                                 let plugin_id = value.split('-')[0];
@@ -636,11 +869,16 @@ var handler = {
                                         xhr.send();
                                         if (xhr.status === 200) {
                                         const data = JSON.parse(xhr.responseText);
-                                        console.log(data);
+                                        if(DEBUG) {
+                                            logMessage('info', 'CopyNoCode: Plugin data');
+                                            console.log(data)
+                                        }
                                         return data[1].data.name_text + " (" +(data[1].data.licence_text == "commercial" ? "paid" : "free" ) + ")";
                                         }
                                     } catch (error) {
-                                        console.error(error);
+                                        if(DEBUG) {
+                                            logMessage('error', 'CopyNoCode: Cant get plugin details of ' + pluginId);
+                                        }
                                     }
                                 }
 
@@ -648,91 +886,132 @@ var handler = {
 
                                 plugins.add(createString('plugin', 'plugin', plugin_id, name, plugin_id));
                                 
-                                types.push(plugin_id);
-                            } else types.push(value);
-                            if(DEBUG) console.log('Type: ' + value + ' found')
+                                element_types.push(plugin_id);
+                                element_types_unique.add(plugin_id);
+                            } else {
+                                element_types.push(value);
+                                element_types_unique.add(value);
+                            }
+
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Type found' + value);
+                            }
                         }
                         
+                        // STYLE
                         if (typeof value === 'string' && key == "style") {
-                            if(app_info.app_paid && related_assets.import.app_styles[value])
-                                styles.add(createString('style', 'style', value, related_assets.import.app_styles[value].display, related_assets.import.app_styles[value]))
+                            if(APP_INFO.paid && related_assets.app_styles[value])
+                                styles.add(createString('style', 'style', value, related_assets.app_styles[value].display, related_assets.app_styles[value]))
                             else
                                 styles.add(createString('style', 'style', value, 'unknown', 'empty'))
 
-                            if(DEBUG) console.log('Style: ' + value + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Style found' + value);
+                            }
                         }
                         
+                        // DB
                         if (typeof value === 'string' && value.startsWith('custom.')) {
                             let thing_id = value.replace('custom.', '')
-                            if(app_info.app_paid && related_assets.import.app_things[thing_id])
-                                customThings.add(createString('type', 'db', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
-                            else
-                                customThings.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
+                            if(APP_INFO.paid && related_assets.app_dbs[thing_id]) {
+                                dbs.add(createString('type', 'db', thing_id, related_assets.app_dbs[thing_id].display, related_assets.app_dbs[thing_id]))
+                                let fields = []
+                                try { fields = Object.keys(related_assets.app_dbs[thing_id].fields).map(f => thing_id + "." + f) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract fields from db ' + thing_id); console.log(related_assets.app_dbs[thing_id])}}
+                                fields.forEach(item => db_fields.add(item))
+                            } else
+                                dbs.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
  
-                            if(DEBUG) console.log('Thing: ' + key + ' with value ' + value + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: DB found' + value);
+                            }
                         }
                         
+                        // DB
                         if (typeof value === 'string' && value.startsWith('list.custom.')) {
                             let thing_id = value.replace('list.custom.', '')
-                            if(app_info.app_paid && related_assets.import.app_things[thing_id])
-                                customThings.add(createString('type', 'db', thing_id, related_assets.import.app_things[thing_id].display, related_assets.import.app_things[thing_id]))
-                            else
-                                customThings.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
- 
-                            if(DEBUG) console.log('Thing: ' + key + ' with value ' + value + ' found')
+                            if(APP_INFO.paid && related_assets.app_dbs[thing_id]) {
+                                dbs.add(createString('type', 'db', thing_id, related_assets.app_dbs[thing_id].display, related_assets.app_dbs[thing_id]))
+                                let fields = []
+                                try { fields = Object.keys(related_assets.app_dbs[thing_id].fields.map(f => thing_id + "." + f)) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract fields from db ' + thing_id); console.log(related_assets.app_dbs[thing_id])}}
+                                fields.forEach(item => db_fields.add(item))
+                            } else
+                                dbs.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
+
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Option Set found' + value);
+                            }
                         }
                         
+                        // OPTION SET
                         if (typeof value === 'string' && value.startsWith('option.')) {
                             let option_id = value.replace('option.', '')
-                            if(app_info.app_paid && related_assets.import.app_option_sets[option_id])
-                                customOptions.add(createString('type', 'option-set', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
-                            else
-                                customOptions.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
+                            if(APP_INFO.paid && related_assets.app_option_sets[option_id]) {
+                                option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, related_assets.app_option_sets[option_id]))
+                                let attributes = []
+                                try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
+                                attributes.forEach(item => option_set_attributes.add(item))
+                            } else
+                                option_sets.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
-                            if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Option Set found' + value);
+                            }
                         }
                         
+                        // OPTION SET
                         if (typeof value === 'string' && value.startsWith('list.option.')) {
 
                             let option_id = value.replace('list.option.', '')
-                            if(app_info.app_paid && related_assets.import.app_option_sets[option_id])
-                                customOptions.add(createString('type', 'option-set', option_id, related_assets.import.app_option_sets[option_id].display, related_assets.import.app_option_sets[option_id]))
-                            else
-                                customOptions.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
+                            if(APP_INFO.paid && related_assets.app_option_sets[option_id]) {
+                                option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, related_assets.app_option_sets[option_id]))
+                                let attributes = []
+                                try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
+                                attributes.forEach(item => option_set_attributes.add(item))
+                            } else
+                                option_sets.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
-                            if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Option Set found' + value);
+                            }
                         }
                         
+                        // API CONNECTOR
                         if (typeof value === 'string' && value.startsWith('apiconnector2-')) {
                             let api_id = value.replace('apiconnector2-', '').split(".")[0]
-                            if(app_info.app_paid && related_assets.import.app_apis[api_id])
-                                ApiConnectors.add(createString('apiconnector', 'apiconnector', api_id, related_assets.import.app_apis[api_id].human, {pub: related_assets.import.app_apis[api_id]}))
+                            if(APP_INFO.paid && related_assets.app_apis[api_id])
+                                api_connectors.add(createString('apiconnector', 'apiconnector', api_id, related_assets.app_api_connectors[api_id].human, {pub: related_assets.app_apis[api_id]}))
                             else
-                                ApiConnectors.add(createString('apiconnector', 'apiconnector', api_id, 'unknown', 'empty'))
+                                api_connectors.add(createString('apiconnector   ', 'apiconnector', api_id, 'unknown', 'empty'))
 
-                            if(DEBUG) console.log('Option: ' + key + ' with value ' + value + ' found')
-
-                            if(DEBUG) console.log('ApiConnector: ' + value + ' with value ' + api_id + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: ApiConnector found' + api_id);
+                            }
                         }
                         
+                        // BACKEND WORKFLOW
                         if (typeof value === 'string' && key == "api_event") {
-                            if(app_info.app_paid && related_assets.import.app_background_workflows[value])
-                                backendWorkflows.add(createString('action', 'backend-workflow', value, related_assets.import.app_background_workflows[value].properties.wf_name, {data: related_assets.import.app_background_workflows[value], is_action: false, page: "api", token_width: 140}))
+                            if(APP_INFO.paid && related_assets.app_background_workflows[value])
+                                backend_workflows.add(createString('action', 'backend-workflow', value, related_assets.app_background_workflows[value].properties.wf_name, {data: related_assets.app_background_workflows[value], is_action: false, page: "api", token_width: 140}))
                             else
-                                backendWorkflows.add(createString('action', 'backend-workflow', value, 'unknown', 'empty'))
+                                backend_workflows.add(createString('action', 'backend-workflow', value, 'unknown', 'empty'))
                                 
-                            if(DEBUG) console.log('Backend Workflow: ' + value + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Backend workflow found' + value);
+                            }
                         }
                         
+                        // REUSABLE ELEMENT
                         if (key == "type" && value == "CustomElement" && json.properties && json.properties.custom_id) {
                             let element_id = json.properties.custom_id;
-                            if(app_info.app_paid && related_assets.import.app_element_definitions[element_id]) {
-                                reusableElement.add(createString('element', 'reusable-element', element_id, related_assets.import.app_element_definitions[element_id].name, related_assets.import.app_element_definitions[element_id]))
-                                checkForCustomValues(related_assets.import.app_element_definitions[element_id], new_path, element_id);
+                            if(APP_INFO.paid && related_assets.app_reusable_elements[element_id]) {
+                                reusable_elements.add(createString('element', 'reusable-element', element_id, related_assets.app_reusable_elements[element_id].name, related_assets.app_reusable_elements[element_id]))
+                                checkForCustomValues(related_assets.app_reusable_elements[element_id], new_path, element_id);
                             } else
-                                reusableElement.add(createString('element', 'reusable-element', element_id, 'unknown', 'empty'))
+                                reusable_elements.add(createString('element', 'reusable-element', element_id, 'unknown', 'empty'))
                             
-                            if(DEBUG) console.log('Reusable element: ' + json.properties.custom_id + ' found')
+                            if(DEBUG) {
+                                logMessage('info', 'CopyNoCode: Reusable element found' + element_id);
+                            }
                         }
                         
                         if (typeof value === 'object' && value !== null) {
@@ -743,12 +1022,45 @@ var handler = {
             
                 checkForCustomValues(json, "", "");
             
-                return {types: types, styles: Array.from(styles), plugins: Array.from(plugins), things: Array.from(customThings), options: Array.from(customOptions), apis: Array.from(ApiConnectors), backendworkflows: Array.from(backendWorkflows), reusables: Array.from(reusableElement)};
+                return {element_types: element_types, element_types_unique: Array.from(element_types_unique), workflows: Array.from(workflows), db_fields: Array.from(db_fields), option_set_attributes: Array.from(option_set_attributes), styles: Array.from(styles), plugins: Array.from(plugins), dbs: Array.from(dbs), option_sets: Array.from(option_sets), api_connectors: Array.from(api_connectors), background_workflows: Array.from(backend_workflows), reusable_elements: Array.from(reusable_elements)};
             }
             
             function createString(type, kind, id, display, content) {
                 return type + "#copynocode#" + kind + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
             }
+        },
+
+        state: function(state) {
+            if(STATE != state) {
+                STATE = state
+                handler.bubble.send('state', {'state': state});
+            }
         }
     }
 }
+
+function logMessage(type, message) {
+    let color;
+    switch (type) {
+      case 'error':
+        color = 'red';
+        break;
+      case 'info':
+        color = 'darkseagreen';
+        break;
+      case 'notice':
+        color = 'green';
+        break;
+      case 'event':
+        color = 'darkgreen';
+        break;
+      case 'result':
+        color = 'olive';
+        break;
+      default:
+        color = 'black';
+        break;
+    }
+    console.log('%c' + message, 'color: ' + color);
+  }
+  
