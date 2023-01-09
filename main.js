@@ -1,17 +1,18 @@
 // CONFIGURE
 const copynocode_discover = "https://copynocode-test.bubbleapps.io/version-test/discover"
 const copynocode_create = "https://copynocode-test.bubbleapps.io/version-test/create"
-const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
-const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/create/{id}"
+const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/update/{id}"
+const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/restore/{id}"
 
 // TODOs
-// ADD fonts and colors // tokens font and tokens colors (2)
-// ADD restore for font and colors (2)
+// Fix navigation when restoring backend workflows and option sets (1)
+// Fix restoring api connectors (1)
+// Allow to trigger notification from bubble plugin (1)
+// ADD fonts and colors to related assets // tokens font and tokens colors (2)
+// ADD restore for font and colors (and navigate) (1)
 // REMOVE secure keys when copy apiconnector (1)
 // ADD secure without keys to apiconnector import (2)
 // REMOVE default styles from related (1)
-// Bubble plugin
-// FIX if reload of iframe (resend all recent data of cache)
 
 /* FLOW
 
@@ -72,7 +73,7 @@ top.window.addEventListener("message", function(message) {
     if(message.data['copynocode_mode']) {
 
         handler.general.switchState('all', 'close');
-        handler.general.switchState(message.data['copynocode_mode'].type, 'open', message.data['copynocode_mode']['id']);
+        handler.general.switchState(message.data['copynocode_mode'].type, message.data['copynocode_mode'].state, message.data['copynocode_mode']['id']);
 
     }
 
@@ -179,6 +180,8 @@ var handler = {
                 let discover_loaded = false
 
                 $('#copynocode-iframe-create').on('load', function() {
+
+                    if(create_loaded) top.window.postMessage({"copynocode_loaded": true}, "*")
                     
                     handler.general.switchState('create', 'close')
                     $('#copynocode-container-create').removeClass('loading')
@@ -187,6 +190,8 @@ var handler = {
                 })
 
                 $('#copynocode-iframe-update').on('load', function() {
+
+                    if(update_loaded) top.window.postMessage({"copynocode_loaded": true}, "*")
                     
                     handler.general.switchState('update', 'close')
                     $('#copynocode-container-update').removeClass('loading')
@@ -195,6 +200,8 @@ var handler = {
                 })
 
                 $('#copynocode-iframe-discover').on('load', function() {
+
+                    if(discover_loaded) top.window.postMessage({"copynocode_loaded": true}, "*")
                     
                     handler.general.switchState('discover', 'close')
                     $('#copynocode-container-discover').removeClass('loading')
@@ -272,9 +279,28 @@ var handler = {
         },
 
         switchState: function(mode, state, id="") {
+            if(DEBUG) {
+                logMessage('info', 'CopyNoCode: Switch Mode');
+                console.log({
+                    mode: mode,
+                    state: state,
+                    id: id
+                })
+            }
+
             if(state == "show" || state == "open") {
                 $('#copynocode-icons .hide').show();
                 $('#copynocode-icons .show').hide();
+
+                if(mode == "update") {
+                    if(id != "") $('#copynocode-iframe-update').attr('src', copynocode_update.replace("{id}", id))
+                    else $('#copynocode-iframe-update').attr('src', copynocode_update.replace("{id}", "404"))
+                }
+                
+                if(mode == "restore") {
+                    if(id != "") $('#copynocode-iframe-restore').attr('src', copynocode_restore.replace("{id}", id))
+                    else $('#copynocode-iframe-restore').attr('src', copynocode_restore.replace("{id}", "404"))
+                }
 
                 if(mode == "discover") $('#copynocode-container-discover').css('display', 'flex');
                 if(mode == "discover") $('#copynocode-container-discover').removeClass('hide');
@@ -302,14 +328,6 @@ var handler = {
                 if(mode == "update" || mode == "all") $('#copynocode-container-update').hide();
                 if(mode == "restore" || mode == "all") $('#copynocode-container-restore').hide();
             }
-
-            if(mode == "update")
-            if(id != "") $('#copynocode-iframe.sidebar-update').attr('src', copynocode_update.replace("{id}", id))
-            else $('#copynocode-iframe.sidebar-update').attr('src', copynocode_update.replace("{id}", "404"))
-            
-            if(mode == "restore")
-            if(id != "") $('#copynocode-iframe.sidebar-restore').attr('src', copynocode_restore.replace("{id}", id))
-            else $('#copynocode-iframe.sidebar-restore').attr('src', copynocode_restore.replace("{id}", "404"))
             
         }
     },
@@ -527,17 +545,21 @@ var handler = {
                 function objectToStrings(type, obj) {
                     switch(type) {
                         case 'styles':
-                            return Object.entries(obj).map(([key, value]) => `style#copynocode#style#copynocode#${value.display}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                            return Object.entries(obj).map(([key, value]) => `style#copynocode#style#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(value)}`);
                         case 'dbs':
-                            return Object.entries(obj).map(([key, value]) => `type#copynocode#db#copynocode#${value.display}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                            let db = value;
+                            db.name = key;
+                            return Object.entries(obj).map(([key, value]) => `type#copynocode#db#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(db)}`);
                         case 'option-sets':
-                            return Object.entries(obj).map(([key, value]) => `type#copynocode#option-set#copynocode#${value.display}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                            let option_set = value;
+                            option_set.name = key;
+                            return Object.entries(obj).map(([key, value]) => `type#copynocode#option-set#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(option_set)}`);
                         case 'api-connectors':
-                            return Object.entries(obj).map(([key, value]) => `apiconnector#copynocode#apiconnector#copynocode#${value.human}#copynocode#${key}#copynocode#${JSON.stringify({pub: value})}`);
+                            return Object.entries(obj).map(([key, value]) => `apiconnector#copynocode#apiconnector#copynocode#${key}#copynocode#${value.human}#copynocode#${JSON.stringify({pub: value})}`);
                         case 'background-workflows':
-                            return Object.entries(obj).map(([key, value]) => `action#copynocode#background-workflows#copynocode#${value.properties.wf_name}#copynocode#${key}#copynocode#${JSON.stringify({data: value, is_action: false, page: "api", token_width: 140})}`);
+                            return Object.entries(obj).map(([key, value]) => `action#copynocode#background-workflows#copynocode#${key}#copynocode#${value.properties.wf_name}#copynocode#${JSON.stringify({data: value, is_action: false, page: "api", token_width: 140})}`);
                         case 'reusable-elements':
-                            return Object.entries(obj).map(([key, value]) => `element#copynocode#reusable-element           #copynocode#${value.name}#copynocode#${key}#copynocode#${JSON.stringify(value)}`);
+                            return Object.entries(obj).map(([key, value]) => `element#copynocode#reusable-element#copynocode#${key}#copynocode#${value.name}#copynocode#${JSON.stringify(value)}`);
                         default:
                             // TODO fix other types
                             if(DEBUG) {
@@ -565,8 +587,13 @@ var handler = {
             
             var restore = parseString(data);
 
-            localStorage.setItem("bubble_" + restore.type + "_clipboard_", restore.content)
-            localStorage.setItem("_this_session_clipboard_bubble_" + restore.type + "_clipboard_", new Date())
+            if(DEBUG) {
+                logMessage('info', 'CopyNoCode: restoring');
+                console.log(restore)
+            }
+
+            localStorage.setItem("bubble_" + restore.type + "_clipboard", restore.content)
+            localStorage.setItem("_this_session_clipboard_bubble_" + restore.type + "_clipboard", new Date())
             
             switch (restore.type) {
                 case 'element':
@@ -804,13 +831,13 @@ var handler = {
                         sendData['stats_db_fields'] = related.db_fields;
                         sendData['stats_db_fields_count'] = related.db_fields.length;
 
-                        sendData['stats_options_set_values'] = related.option_set_attributes;
-                        sendData['stats_options_set_values_count'] = related.option_set_attributes.length;
+                        sendData['stats_option_set_attributes'] = related.option_set_attributes;
+                        sendData['stats_option_set_attributes_count'] = related.option_set_attributes.length;
                     }
 
                     var local_storage_copy_obj = {};
                 
-                    local_storage_copy_obj["bubble_" + APPNAME + "_copy"] = {"copied": sendData};
+                    local_storage_copy_obj["bubble_" + APPNAME + "_copy"] = {"copy": sendData};
             
                     chrome.storage.local.set(local_storage_copy_obj).then(() => {
                         if(DEBUG) {
@@ -819,7 +846,7 @@ var handler = {
                         }
                     });
     
-                    handler.bubble.send('copy (refresh)', {"copied": sendData});
+                    handler.bubble.send('copy (refresh)', {"copy": sendData});
                 }
             
                 return sendData;
@@ -902,7 +929,7 @@ var handler = {
                         if (typeof value === 'string' && key == "style") {
                             if(APP_INFO.paid && related_assets.app_styles[value])
                                 styles.add(createString('style', 'style', value, related_assets.app_styles[value].display, related_assets.app_styles[value]))
-                            else
+                            else if(!APP_INFO.paid)
                                 styles.add(createString('style', 'style', value, 'unknown', 'empty'))
 
                             if(DEBUG) {
@@ -914,11 +941,13 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('custom.')) {
                             let thing_id = value.replace('custom.', '')
                             if(APP_INFO.paid && related_assets.app_dbs[thing_id]) {
-                                dbs.add(createString('type', 'db', thing_id, related_assets.app_dbs[thing_id].display, related_assets.app_dbs[thing_id]))
+                                var thing = related_assets.app_dbs[thing_id]
+                                thing.name = thing_id;
+                                dbs.add(createString('type', 'db', thing_id, related_assets.app_dbs[thing_id].display, thing))
                                 let fields = []
                                 try { fields = Object.keys(related_assets.app_dbs[thing_id].fields).map(f => thing_id + "." + f) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract fields from db ' + thing_id); console.log(related_assets.app_dbs[thing_id])}}
                                 fields.forEach(item => db_fields.add(item))
-                            } else
+                            } else if(!APP_INFO.paid)
                                 dbs.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
  
                             if(DEBUG) {
@@ -930,11 +959,13 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('list.custom.')) {
                             let thing_id = value.replace('list.custom.', '')
                             if(APP_INFO.paid && related_assets.app_dbs[thing_id]) {
-                                dbs.add(createString('type', 'db', thing_id, related_assets.app_dbs[thing_id].display, related_assets.app_dbs[thing_id]))
+                                var thing = related_assets.app_dbs[thing_id]
+                                thing.name = thing_id;
+                                dbs.add(createString('type', 'db', thing_id, related_assets.app_dbs[thing_id].display, thing))
                                 let fields = []
                                 try { fields = Object.keys(related_assets.app_dbs[thing_id].fields.map(f => thing_id + "." + f)) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract fields from db ' + thing_id); console.log(related_assets.app_dbs[thing_id])}}
                                 fields.forEach(item => db_fields.add(item))
-                            } else
+                            } else if(!APP_INFO.paid)
                                 dbs.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
 
                             if(DEBUG) {
@@ -946,11 +977,13 @@ var handler = {
                         if (typeof value === 'string' && value.startsWith('option.')) {
                             let option_id = value.replace('option.', '')
                             if(APP_INFO.paid && related_assets.app_option_sets[option_id]) {
-                                option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, related_assets.app_option_sets[option_id]))
+                                var option = related_assets.app_option_sets[option_id]
+                                option.name = option_id;
+                                option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, option))
                                 let attributes = []
                                 try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
                                 attributes.forEach(item => option_set_attributes.add(item))
-                            } else
+                            } else if(!APP_INFO.paid)
                                 option_sets.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
                             if(DEBUG) {
@@ -963,11 +996,13 @@ var handler = {
 
                             let option_id = value.replace('list.option.', '')
                             if(APP_INFO.paid && related_assets.app_option_sets[option_id]) {
-                                option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, related_assets.app_option_sets[option_id]))
+                                var option = related_assets.app_option_sets[option_id]
+                                option.name = option_id;
+                                option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, option))
                                 let attributes = []
                                 try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
                                 attributes.forEach(item => option_set_attributes.add(item))
-                            } else
+                            } else if(!APP_INFO.paid)
                                 option_sets.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
                             if(DEBUG) {
@@ -978,9 +1013,9 @@ var handler = {
                         // API CONNECTOR
                         if (typeof value === 'string' && value.startsWith('apiconnector2-')) {
                             let api_id = value.replace('apiconnector2-', '').split(".")[0]
-                            if(APP_INFO.paid && related_assets.app_apis[api_id])
-                                api_connectors.add(createString('apiconnector', 'apiconnector', api_id, related_assets.app_api_connectors[api_id].human, {pub: related_assets.app_apis[api_id]}))
-                            else
+                            if(APP_INFO.paid && related_assets.app_api_connectors[api_id])
+                                api_connectors.add(createString('apiconnector', 'apiconnector', api_id, related_assets.app_api_connectors[api_id].human, {pub: related_assets.app_api_connectors[api_id]}))
+                            else if(!APP_INFO.paid)
                                 api_connectors.add(createString('apiconnector   ', 'apiconnector', api_id, 'unknown', 'empty'))
 
                             if(DEBUG) {
@@ -992,7 +1027,7 @@ var handler = {
                         if (typeof value === 'string' && key == "api_event") {
                             if(APP_INFO.paid && related_assets.app_background_workflows[value])
                                 backend_workflows.add(createString('action', 'backend-workflow', value, related_assets.app_background_workflows[value].properties.wf_name, {data: related_assets.app_background_workflows[value], is_action: false, page: "api", token_width: 140}))
-                            else
+                            else if(!APP_INFO.paid)
                                 backend_workflows.add(createString('action', 'backend-workflow', value, 'unknown', 'empty'))
                                 
                             if(DEBUG) {
@@ -1006,7 +1041,7 @@ var handler = {
                             if(APP_INFO.paid && related_assets.app_reusable_elements[element_id]) {
                                 reusable_elements.add(createString('element', 'reusable-element', element_id, related_assets.app_reusable_elements[element_id].name, related_assets.app_reusable_elements[element_id]))
                                 checkForCustomValues(related_assets.app_reusable_elements[element_id], new_path, element_id);
-                            } else
+                            } else if(!APP_INFO.paid)
                                 reusable_elements.add(createString('element', 'reusable-element', element_id, 'unknown', 'empty'))
                             
                             if(DEBUG) {
@@ -1026,7 +1061,7 @@ var handler = {
             }
             
             function createString(type, kind, id, display, content) {
-                return type + "#copynocode#" + kind + "#copynocode#" + display + "#copynocode#" + id + "#copynocode#" + JSON.stringify(content)
+                return type + "#copynocode#" + kind + "#copynocode#" + id + "#copynocode#" + display + "#copynocode#" + JSON.stringify(content)
             }
         },
 
