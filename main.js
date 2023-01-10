@@ -5,14 +5,11 @@ const copynocode_update = "https://copynocode-test.bubbleapps.io/version-test/up
 const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/restore/{id}"
 
 // TODOs
-// Fix navigation when restoring backend workflows and option sets (1)
 // Fix restoring api connectors (1)
-// Allow to trigger notification from bubble plugin (1)
 // ADD fonts and colors to related assets // tokens font and tokens colors (2)
 // ADD restore for font and colors (and navigate) (1)
 // REMOVE secure keys when copy apiconnector (1)
 // ADD secure without keys to apiconnector import (2)
-// REMOVE default styles from related (1)
 
 /* FLOW
 
@@ -106,6 +103,10 @@ top.window.addEventListener("message", function(message) {
         handler[PLATFORM].listen();
 
         handler[PLATFORM].state('READY');
+    }
+
+    if(message.data['copynocode_notification_success']) {
+        NOTYF.success(message.data['copynocode_notification_success'])
     }
 });
 
@@ -599,26 +600,32 @@ var handler = {
                 case 'element':
                 case 'element_with_workflow':
                     $('.tabs-1').click();
+                    NOTYF.success(restore.kind + ' to your clipboard');
                     break;
                 case 'type':
                     $('.tabs-3').click();
-                    if(data.kind == "option-set") $('.tab-caption.option.sets').click();
+                    if(restore.kind == "option-set") $('.tab-caption.option.sets').click();
+                    NOTYF.success(restore.kind + ' to your clipboard');
                     break;
                 case 'style':
                     $('.tabs-4').click();
+                    NOTYF.success(restore.kind + ' to your clipboard');
                     break;
                 case 'plugin':
                     $('.tabs-5').click();
+                    NOTYF.success(restore.kind + ' to your clipboard');
                     break;
                 case 'apiconnector':
                     $('.tabs-5').click();
+                    NOTYF.success(restore.kind + ' to your clipboard');
                     break;
                 case 'action':
-                    $('.context-menu-item.backend_workflows').click();
+                    if(APP_INFO.paid) {
+                        $('.context-menu-item.backend_workflows').click();
+                        NOTYF.success(restore.kind + ' to your clipboard');
+                    } else NOTYF.error('You need to be on a paid plan to use Backend Workflows')
                     break;
             }
-
-            NOTYF.success(restore.kind + ' to your clipboard');
 
             handler[PLATFORM].state('READY');
 
