@@ -39,6 +39,7 @@ COPY (from bubble)
 */
 
 const DEBUG = true;
+const DEBUG_DATA = false;
 
 // get appname
 var url = new URL(window.location.href);
@@ -411,7 +412,7 @@ var handler = {
         },
 
         import: async function() {
-            handler[PLATFORM].state('LOADING');
+            // handler[PLATFORM].state('LOADING');
 
             let senddata = setInterval(async function () {
                 clearInterval(senddata);
@@ -540,20 +541,24 @@ var handler = {
         
                 handler.bubble.send('import (refresh)', sendImportData);
 
-                handler[PLATFORM].state('READY');
+                // handler[PLATFORM].state('READY');
 
                 function objectToStrings(type, obj) {
                     switch(type) {
                         case 'styles':
                             return Object.entries(obj).map(([key, value]) => `style#copynocode#style#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(value)}`);
                         case 'dbs':
-                            let db = value;
-                            db.name = key;
-                            return Object.entries(obj).map(([key, value]) => `type#copynocode#db#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(db)}`);
+                            return Object.entries(obj).map(([key, value]) => {
+                                let db = value;
+                                db.name = key;
+                                return `type#copynocode#db#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(db)}`;
+                            });
                         case 'option-sets':
-                            let option_set = value;
-                            option_set.name = key;
-                            return Object.entries(obj).map(([key, value]) => `type#copynocode#option-set#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(option_set)}`);
+                            return Object.entries(obj).map(([key, value]) => {
+                                let option_set = value;
+                                option_set.name = key;
+                                return `type#copynocode#option-set#copynocode#${key}#copynocode#${value.display}#copynocode#${JSON.stringify(option_set)}`;
+                            });
                         case 'api-connectors':
                             return Object.entries(obj).map(([key, value]) => `apiconnector#copynocode#apiconnector#copynocode#${key}#copynocode#${value.human}#copynocode#${JSON.stringify({pub: value})}`);
                         case 'background-workflows':
@@ -657,12 +662,12 @@ var handler = {
         },
 
         listen: function() {
-            top.window.addEventListener('storage', (event) => {
+            top.window.addEventListener('storage', handleListenEvent)
+
+            async function handleListenEvent(event) {
                 if (!event.key) { return; }
                 if (event.key.indexOf('global_clipboard_message_') != 0) { return; }
                 if (!event.newValue) { return; }
-
-                handler[PLATFORM].state('LOADING');
 
                 if(DEBUG) {
                     logMessage('event', 'CopyNoCode: LocalStorage changed for ' + event.key);
@@ -683,6 +688,8 @@ var handler = {
                         console.log(json)
                     }
 
+                    handler[PLATFORM].state('LOADING');
+
                     var sendData = {}
 
                     sendData['type'] = json.key.replace('bubble_', '').replace('_clipboard', '')
@@ -690,19 +697,19 @@ var handler = {
 
                     $('#copynocode-btn.create').show();
 
+                    await handler.bubble.send('copy (refresh)', {"copy": sendData});
+
+                    await handler[PLATFORM].state('READY');
+
                     extractData(sendData);
-
-                    handler[PLATFORM].state('READY');
                 } else {
-                    handler[PLATFORM].state('READY');
-
                     if(DEBUG) {
                         logMessage('error', 'CopyNoCode: LocalStorage no data found');
                     }
                 }
-            })
+            }
 
-            function extractData(sendData) {
+            async function extractData(sendData) {
                 if(sendData['data']) {   
                     let content;
             
@@ -847,6 +854,8 @@ var handler = {
                     });
     
                     handler.bubble.send('copy (refresh)', {"copy": sendData});
+
+                    handler[PLATFORM].state('READY');
                 }
             
                 return sendData;
@@ -873,7 +882,7 @@ var handler = {
                     if(path != "" && parent != "") new_path = path + '.' + parent;
                     else if(path == "" && parent != "") new_path = parent;
 
-                    if(DEBUG) {
+                    if(DEBUG_DATA) {
                         logMessage('info', 'CopyNoCode: Check path ' + new_path);
                         console.log(json)
                     }
@@ -896,14 +905,14 @@ var handler = {
                                         xhr.send();
                                         if (xhr.status === 200) {
                                         const data = JSON.parse(xhr.responseText);
-                                        if(DEBUG) {
+                                        if(DEBUG_DATA) {
                                             logMessage('info', 'CopyNoCode: Plugin data');
                                             console.log(data)
                                         }
                                         return data[1].data.name_text + " (" +(data[1].data.licence_text == "commercial" ? "paid" : "free" ) + ")";
                                         }
                                     } catch (error) {
-                                        if(DEBUG) {
+                                        if(DEBUG_DATA) {
                                             logMessage('error', 'CopyNoCode: Cant get plugin details of ' + pluginId);
                                         }
                                     }
@@ -920,7 +929,7 @@ var handler = {
                                 element_types_unique.add(value);
                             }
 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Type found' + value);
                             }
                         }
@@ -932,7 +941,7 @@ var handler = {
                             else if(!APP_INFO.paid)
                                 styles.add(createString('style', 'style', value, 'unknown', 'empty'))
 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Style found' + value);
                             }
                         }
@@ -950,7 +959,7 @@ var handler = {
                             } else if(!APP_INFO.paid)
                                 dbs.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
  
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: DB found' + value);
                             }
                         }
@@ -968,7 +977,7 @@ var handler = {
                             } else if(!APP_INFO.paid)
                                 dbs.add(createString('type', 'db', thing_id, 'unknown', 'empty'))
 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Option Set found' + value);
                             }
                         }
@@ -981,12 +990,14 @@ var handler = {
                                 option.name = option_id;
                                 option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, option))
                                 let attributes = []
-                                try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
-                                attributes.forEach(item => option_set_attributes.add(item))
+                                if(related_assets.app_option_sets[option_id].attributes) {
+                                    try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
+                                    attributes.forEach(item => option_set_attributes.add(item))
+                                }
                             } else if(!APP_INFO.paid)
                                 option_sets.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Option Set found' + value);
                             }
                         }
@@ -1000,12 +1011,14 @@ var handler = {
                                 option.name = option_id;
                                 option_sets.add(createString('type', 'option-set', option_id, related_assets.app_option_sets[option_id].display, option))
                                 let attributes = []
-                                try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
-                                attributes.forEach(item => option_set_attributes.add(item))
+                                if(related_assets.app_option_sets[option_id].attributes) {
+                                    try { attributes = Object.keys(related_assets.app_option_sets[option_id].attributes).map(a => option_id + "." + a) } catch(e) {if(DEBUG) {logMessage('error', 'CopyNoCode: Cant extract values from option sets ' + option_id); console.log(related_assets.app_option_sets[option_id])}}
+                                    attributes.forEach(item => option_set_attributes.add(item))
+                                }
                             } else if(!APP_INFO.paid)
                                 option_sets.add(createString('type', 'option-set', option_id, 'unknown', 'empty'))
 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Option Set found' + value);
                             }
                         }
@@ -1018,7 +1031,7 @@ var handler = {
                             else if(!APP_INFO.paid)
                                 api_connectors.add(createString('apiconnector   ', 'apiconnector', api_id, 'unknown', 'empty'))
 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: ApiConnector found' + api_id);
                             }
                         }
@@ -1030,7 +1043,7 @@ var handler = {
                             else if(!APP_INFO.paid)
                                 backend_workflows.add(createString('action', 'backend-workflow', value, 'unknown', 'empty'))
                                 
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Backend workflow found' + value);
                             }
                         }
@@ -1044,7 +1057,7 @@ var handler = {
                             } else if(!APP_INFO.paid)
                                 reusable_elements.add(createString('element', 'reusable-element', element_id, 'unknown', 'empty'))
                             
-                            if(DEBUG) {
+                            if(DEBUG_DATA) {
                                 logMessage('info', 'CopyNoCode: Reusable element found' + element_id);
                             }
                         }
@@ -1065,7 +1078,7 @@ var handler = {
             }
         },
 
-        state: function(state) {
+        state: async function(state) {
             if(STATE != state) {
                 STATE = state
                 handler.bubble.send('state', {'state': state});
