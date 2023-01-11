@@ -35,7 +35,7 @@ COPY (from bubble)
 
 */
 
-const DEBUG = true;
+const DEBUG = false;
 const DEBUG_DATA = false;
 
 // get appname
@@ -883,6 +883,8 @@ var handler = {
                 const option_set_attributes = new Set();
                 const fonts = new Set();
                 const colors = new Set();
+                const ids = new Set();
+                const recursive_ids = new Set();
             
                 function checkForCustomValues(json, path, parent) {
                     let new_path = "";
@@ -1060,7 +1062,10 @@ var handler = {
                             let element_id = json.properties.custom_id;
                             if(APP_INFO.paid && related_assets.app_reusable_elements[element_id]) {
                                 reusable_elements.add(createString('element', 'reusable-element', element_id, related_assets.app_reusable_elements[element_id].name, related_assets.app_reusable_elements[element_id]))
-                                checkForCustomValues(related_assets.app_reusable_elements[element_id], new_path, element_id);
+                                if(!recursive_ids.has(element_id)) {
+                                    recursive_ids.add(element_id);
+                                    checkForCustomValues(related_assets.app_reusable_elements[element_id], new_path, element_id);
+                                }
                             } else if(!APP_INFO.paid)
                                 reusable_elements.add(createString('element', 'reusable-element', element_id, 'unknown', 'empty'))
                             
