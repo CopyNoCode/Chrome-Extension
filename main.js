@@ -95,7 +95,7 @@ top.window.addEventListener("message", function(message) {
 
         handler[PLATFORM].state('LOADING');
 
-        handler[PLATFORM].get_app();
+        handler[PLATFORM].get_user();
 
         handler[PLATFORM].restore_cache();
 
@@ -185,8 +185,10 @@ var handler = {
 
                     if(create_loaded) top.window.postMessage({"copynocode_loaded": true}, "*")
                     
-                    handler.general.switchState('create', 'close')
-                    $('#copynocode-container-create').removeClass('loading')
+                    if(!create_loaded) {
+                        handler.general.switchState('create', 'close')
+                        $('#copynocode-container-create').removeClass('loading')
+                    }
                     
                     create_loaded = true
                 })
@@ -195,8 +197,10 @@ var handler = {
 
                     if(update_loaded) top.window.postMessage({"copynocode_loaded": true}, "*")
                     
-                    handler.general.switchState('update', 'close')
-                    $('#copynocode-container-update').removeClass('loading')
+                    if(!update_loaded) {
+                        handler.general.switchState('update', 'close')
+                        $('#copynocode-container-update').removeClass('loading')
+                    }
                     
                     update_loaded = true
                 })
@@ -205,8 +209,10 @@ var handler = {
 
                     if(discover_loaded) top.window.postMessage({"copynocode_loaded": true}, "*")
                     
-                    handler.general.switchState('discover', 'close')
-                    $('#copynocode-container-discover').removeClass('loading')
+                    if(!discover_loaded) {
+                        handler.general.switchState('discover', 'close')
+                        $('#copynocode-container-discover').removeClass('loading')
+                    }
                     
                     discover_loaded = true
                 })
@@ -370,35 +376,10 @@ var handler = {
 
         },
 
-        get_app: async function() {
-            let app_response = await fetch("https://bubble.io/appeditor/get_app_plan", {
-                "headers": {
-                    "accept": "application/json, text/javascript, */*; q=0.01",
-                    "content-type": "application/json"
-                },
-                "body": `{\"appname\":\"` + APPNAME +`\",\"check_admin\":false}`,
-                "method": "POST"
-            });
-
-            let app_json = await app_response.json();
-
+        get_user: async function() {
             var user_response = await fetch("https://bubble.io/api/1.1/init/data?location=https%3A%2F%2Fbubble.io%2Faccount");
             var user_json = await user_response.json()
             var email = user_json[0].data.authentication.email.email
-
-            if(app_json) {
-                APP_INFO = {
-                    paid: app_json.export_app_json,
-                    name: APPNAME,
-                    platform: "bubble"
-                }
-                handler.bubble.send('app', {"app": APP_INFO})
-            } else {
-                if(DEBUG) {
-                    logMessage('error', 'CopyNoCode: Failed to get App Plan');
-                    console.log(app_json)
-                }
-            }
 
             if(email)
                 handler.bubble.send('user', {"user": {
@@ -430,6 +411,14 @@ var handler = {
                 let sendImportData = {}
         
                 if(!json.error_class) {
+
+                    APP_INFO = {
+                        paid: true,
+                        name: APPNAME,
+                        platform: "bubble"
+                    }
+                    handler.bubble.send('app', {"app": APP_INFO})
+
                     const app_styles  = json.styles
         
                     const app_option_sets = json.option_sets
@@ -440,11 +429,11 @@ var handler = {
 
                     const app_default_styles = json.settings.client_safe.default_styles;
 
-                    const app_custom_fonts = (json.settings.client_safe.font_tokens_user.default ? json.settings.client_safe.font_tokens_user.default : {});
+                    const app_custom_fonts = (json.settings.client_safe.font_tokens_user && json.settings.client_safe.font_tokens_user.default ? json.settings.client_safe.font_tokens_user.default : {});
 
-                    const app_custom_colors = (json.settings.client_safe.color_tokens_user.default ? json.settings.client_safe.color_tokens_user.default : {});
+                    const app_custom_colors = (json.settings.client_safe.color_tokens_user && json.settings.client_safe.color_tokens_user.default ? json.settings.client_safe.color_tokens_user.default : {});
 
-                    const app_default_font = (json.settings.client_safe.font_tokens ? json.settings.client_safe.font_tokens : {
+                    const app_default_font = (json.settings.client_safe.font_tokens && json.settings.client_safe.font_tokens ? json.settings.client_safe.font_tokens : {
                         "default": "Lato"
                     })
 
@@ -513,6 +502,14 @@ var handler = {
                         app_imported_at: new Date().valueOf()
                     }}
                 } else {
+                    APP_INFO = {
+                        paid: false,
+                        name: APPNAME,
+                        platform: "bubble"
+                    }
+
+                    handler.bubble.send('app', {"app": APP_INFO})
+
                     sendImportData = {"import": {
                         related_assets
                     }}
