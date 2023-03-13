@@ -1,3 +1,5 @@
+// COPYRIGHTED BY CopyNoCode
+
 // CONFIGURE
 const copynocode_discover = "https://copynocode-test.bubbleapps.io/version-test/discover"
 const copynocode_create = "https://copynocode-test.bubbleapps.io/version-test/create"
