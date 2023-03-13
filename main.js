@@ -9,6 +9,7 @@ const copynocode_restore = "https://copynocode-test.bubbleapps.io/version-test/r
 // TODOs
 // Restore plugins should open dialogue
 // Automate restoring related assets (see https://gist.github.com/kayamy/cb04498c3f5c9188f0d6068f5f5006a0)
+// Add elementGetRelated to worker and listen to result before pushing to bubble plugin
 // ADD fonts and colors to related assets // tokens font and tokens colors (2)
 // ADD restore for font and colors (and navigate) (1)
 // REMOVE secure keys when copy apiconnector (1)
